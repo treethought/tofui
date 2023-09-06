@@ -116,8 +116,6 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	log.Println("FeedView.Update: ")
-
 	return m, tea.Batch(cmds...)
 }
 

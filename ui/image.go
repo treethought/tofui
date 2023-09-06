@@ -9,7 +9,6 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -26,8 +25,24 @@ import (
 	_ "golang.org/x/image/webp"
 )
 
-type convertImageToStringMsg string
-type errorMsg error
+type imageDownloadMsg struct {
+	url      string
+	filename string
+}
+type convertImageToStringMsg struct {
+	filename string
+	str      string
+}
+
+type downloadError struct {
+	err error
+	url string
+}
+
+type decodeError struct {
+	err      error
+	filename string
+}
 
 const (
 	padding = 1
@@ -103,58 +118,52 @@ func downloadImage(width int, url string) tea.Cmd {
 	return func() tea.Msg {
 		cacheDir, err := os.UserCacheDir()
 		if err != nil {
-			log.Println("error getting cache dir : ", err)
-			return errorMsg(err)
+			return downloadError{err: err, url: url}
 		}
 
 		imgageCacheDir := filepath.Join(cacheDir, "castr", "img")
 		os.MkdirAll(imgageCacheDir, os.ModePerm)
 
-		// check for cached image in tmp dir
-		// if it exists return instance
-		// if not download image and cache instance
-
-		// get hash of url
+		dUrl := url
 		ep, err := getEmbedPreview(url)
-		if err == nil {
-			url = ep.ImageURL
+		if err == nil && ep.ImageURL != "" {
+			dUrl = ep.ImageURL
 		}
 
-		hash := sha256.Sum256([]byte(url))
+		hash := sha256.Sum256([]byte(dUrl))
 
 		fileName := filepath.Join(imgageCacheDir, fmt.Sprintf("%x", hash))
-		log.Println(fileName)
 
 		// check if file exists
 		if _, ferr := os.Stat(fileName); ferr == nil {
-			return convertImageToStringCmd(width, fileName)
+			return imageDownloadMsg{url: url, filename: fileName}
 		}
 
 		f, err := os.Create(fileName)
 		if err != nil {
-			return errorMsg(err)
+			return downloadError{err: err, url: url}
 		}
 		defer f.Close()
 
-		log.Println("downloading : ", url)
-		req, err := http.NewRequest("GET", url, nil)
+		req, err := http.NewRequest("GET", dUrl, nil)
 		if err != nil {
-			log.Println("error creating request : ", err)
-			return errorMsg(err)
+			return downloadError{err: err, url: url}
 		}
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
-			log.Println("error downloading image : ", err)
-			return errorMsg(err)
+			return downloadError{err: err, url: url}
+		}
+		if resp.StatusCode != 200 {
+			return downloadError{err: fmt.Errorf("bad status code: %d", resp.StatusCode), url: url}
 		}
 
 		_, err = io.Copy(f, resp.Body)
 		if err != nil {
-			log.Println("error copying response body to file : ", err)
-			return errorMsg(err)
+			return downloadError{err: err, url: url}
 		}
-		return convertImageToStringCmd(width, f.Name())
+
+		return imageDownloadMsg{url: url, filename: fileName}
 	}
 }
 
@@ -163,17 +172,17 @@ func convertImageToStringCmd(width int, filename string) tea.Cmd {
 	return func() tea.Msg {
 		imageContent, err := os.Open(filepath.Clean(filename))
 		if err != nil {
-			return errorMsg(err)
+			return downloadError{err: err, url: filename}
 		}
 
 		img, _, err := image.Decode(imageContent)
 		if err != nil {
-			return errorMsg(err)
+			return downloadError{err: err, url: filename}
 		}
 
 		imageString := ToString(width, img)
 
-		return convertImageToStringMsg(imageString)
+		return convertImageToStringMsg{filename: filename, str: imageString}
 	}
 }
 
@@ -184,6 +193,7 @@ type ImageModel struct {
 	Active      bool
 	Borderless  bool
 	FileName    string
+	URL         string
 	ImageString string
 }
 
@@ -216,6 +226,7 @@ func (m ImageModel) Init() tea.Cmd {
 }
 
 func (m *ImageModel) SetURL(url string) tea.Cmd {
+	m.URL = url
 	return downloadImage(m.Viewport.Width, url)
 }
 
@@ -223,7 +234,6 @@ func (m *ImageModel) SetURL(url string) tea.Cmd {
 // returns a cmd which will highlight the text.
 func (m *ImageModel) SetFileName(filename string) tea.Cmd {
 	m.FileName = filename
-
 	return convertImageToStringCmd(m.Viewport.Width, filename)
 }
 
@@ -279,26 +289,37 @@ func (m ImageModel) Update(msg tea.Msg) (ImageModel, tea.Cmd) {
 	)
 
 	switch msg := msg.(type) {
+	case imageDownloadMsg:
+		if msg.url == m.URL {
+			cmds = append(cmds, m.SetFileName(msg.filename))
+		}
+
 	case convertImageToStringMsg:
-		m.ImageString = lipgloss.NewStyle().
-			Width(m.Viewport.Width).
-			Height(m.Viewport.Height).
-			Render(string(msg))
-
-		m.Viewport.SetContent(m.ImageString)
-
-		return m, nil
-	case errorMsg:
-		log.Println("error : ", msg.Error())
-		m.FileName = ""
-		m.ImageString = lipgloss.NewStyle().
-			Width(m.Viewport.Width).
-			Height(m.Viewport.Height).
-			Render("Error: " + msg.Error())
-
-		m.Viewport.SetContent(m.ImageString)
+		if msg.filename == m.FileName {
+			m.ImageString = lipgloss.NewStyle().
+				Width(m.Viewport.Width).
+				Height(m.Viewport.Height).
+				Render(msg.str)
+			m.Viewport.SetContent(m.ImageString)
+		}
 
 		return m, nil
+	case downloadError:
+		if msg.url == m.URL {
+			m.FileName = ""
+			m.ImageString = lipgloss.NewStyle().
+				Width(m.Viewport.Width).
+				Height(m.Viewport.Height).
+				Render("Error: " + msg.err.Error())
+		}
+	case decodeError:
+		if msg.filename == m.FileName {
+			m.FileName = ""
+			m.ImageString = lipgloss.NewStyle().
+				Width(m.Viewport.Width).
+				Height(m.Viewport.Height).
+				Render("Error: " + msg.err.Error())
+		}
 	}
 
 	if m.Active {

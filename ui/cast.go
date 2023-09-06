@@ -107,7 +107,6 @@ func (d castItemDelegate) Render(w io.Writer, m list.Model, index int, item list
 	rf := boxStyle
 	if index == m.Cursor() {
 		rf = boxSelectedStyle
-		i.img.SetIsActive(true)
 	}
 
 	s := rf.Render(i.View())
@@ -118,34 +117,29 @@ func (d castItemDelegate) Render(w io.Writer, m list.Model, index int, item list
 
 type CastView struct {
 	cast api.Cast
-	img  *ImageModel
+	img  ImageModel
 }
 
 func NewCastView(cast api.Cast) (*CastView, tea.Cmd) {
 	c := &CastView{
 		cast: cast,
 	}
-	img := NewImage(false, true, special)
-	c.img = &img
+	img := NewImage(true, true, special)
+	c.img = img
 
 	if len(cast.Embeds) > 0 {
-		c.img.SetSize(5, 5)
-    return c, tea.Batch(c.img.SetURL(cast.Embeds[0].URL), c.img.SetSize(5, 5))
+		return c, tea.Batch(c.img.SetURL(cast.Embeds[0].URL), c.img.SetSize(20, 10))
 	}
 	return c, nil
 }
 
 func (m *CastView) Init() tea.Cmd {
-	if m.img != nil {
-		return m.img.SetURL(m.cast.Embeds[0].URL)
-	}
-
 	return nil
 }
 
 func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	img, cmd := m.img.Update(msg)
-	m.img = &img
+	m.img = img
 	return m, cmd
 }
 
@@ -169,9 +163,6 @@ func (i *CastView) Description() string {
 	if err != nil {
 		m = i.cast.Text
 	}
-	if i.img.FileName != "" {
-		return fmt.Sprintf("%s\n%s", m, i.img.FileName)
-	}
 
 	content := contentStyle.Render(m)
 	stats := infoStyle.Render(lipgloss.JoinHorizontal(lipgloss.Top,
@@ -181,7 +172,16 @@ func (i *CastView) Description() string {
 			Render(i.cast.HumanTime()),
 	))
 
-	return fmt.Sprintf("%s\n%s", content, stats)
+	img := ""
+	if i.img.FileName != "" {
+		img = i.img.View()
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Top,
+		content,
+		img,
+		stats,
+	)
 }
 
 func (i *CastView) FilterValue() string {

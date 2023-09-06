@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"reflect"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -82,7 +81,7 @@ func (a *App) propagateEvent(msg tea.Msg) tea.Cmd {
 	return nil
 }
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	log.Println("received msg type: ", reflect.TypeOf(msg))
+	// log.Println("received msg type: ", reflect.TypeOf(msg))
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
 	case FocusMsg:
