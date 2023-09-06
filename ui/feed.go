@@ -1,7 +1,10 @@
 package ui
 
 import (
+	"fmt"
 	"log"
+	"os/exec"
+	"runtime"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -97,6 +100,12 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
+		if msg.String() == "o" {
+			current := m.list.SelectedItem().(*CastView)
+			cast := current.cast
+
+			return m, OpenURL(fmt.Sprintf("https://warpcast.com/%s/%s", cast.Author.Username, cast.Hash))
+		}
 	case *api.FeedResponse:
 		return m, m.setItems(msg)
 	case tea.WindowSizeMsg:
@@ -122,4 +131,25 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *FeedView) View() string {
 	return m.list.View()
 
+}
+
+func OpenURL(url string) tea.Cmd {
+	return func() tea.Msg {
+		var cmd string
+		var args []string
+
+		switch runtime.GOOS {
+		case "windows":
+			cmd = "cmd"
+			args = []string{"/c", "start"}
+		case "darwin":
+			cmd = "open"
+		default: // "linux", "freebsd", "openbsd", "netbsd"
+			cmd = "xdg-open"
+		}
+		args = append(args, url)
+
+		_ = exec.Command(cmd, args...).Start()
+		return nil
+	}
 }
