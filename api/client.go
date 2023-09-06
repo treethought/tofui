@@ -47,8 +47,8 @@ type Cast struct {
 	Author struct {
 		FIID        int32
 		Username    string
-		DisplayName string
-		PfpURL      string
+		DisplayName string `json:"display_name"`
+		PfpURL      string `json:"pfp_url"`
 		Profile     struct {
 			Bio struct {
 				Text string
@@ -83,7 +83,6 @@ type Reaction struct {
 
 func (c *Client) GetFeed(r FeedRequest) (*FeedResponse, error) {
 	url := fmt.Sprintf("%s/feed?api_key=%s&fid=%d", c.baseURL, c.apiKey, r.FID)
-	fmt.Println(url)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -94,6 +93,7 @@ func (c *Client) GetFeed(r FeedRequest) (*FeedResponse, error) {
 		log.Println("failed to get feed: ", err)
 		return nil, err
 	}
+
 	defer res.Body.Close()
 	resp := &FeedResponse{}
 	err = json.NewDecoder(res.Body).Decode(resp)

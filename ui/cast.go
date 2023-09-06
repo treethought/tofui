@@ -29,14 +29,12 @@ var (
 		String()
 
 	titleStyle = lipgloss.NewStyle().
-			MarginLeft(1).
 			MarginRight(5).
-			Padding(0, 1).
-			Italic(true).
-			Foreground(lipgloss.Color("#FFF7DB")).
-			SetString("Lip Gloss")
+			// Padding(0, 1).
+			// Italic(true).
+			Foreground(highlight)
 
-	descStyle = lipgloss.NewStyle().MarginTop(1)
+	imgStyle = lipgloss.NewStyle() //.MarginTop(1)
 
 	infoStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.NormalBorder()).
@@ -118,19 +116,24 @@ func (d castItemDelegate) Render(w io.Writer, m list.Model, index int, item list
 type CastView struct {
 	cast api.Cast
 	img  ImageModel
+	pfp  ImageModel
 }
 
 func NewCastView(cast api.Cast) (*CastView, tea.Cmd) {
 	c := &CastView{
 		cast: cast,
+		pfp:  NewImage(true, true, special),
 	}
 	img := NewImage(true, true, special)
 	c.img = img
 
-	if len(cast.Embeds) > 0 {
-		return c, tea.Batch(c.img.SetURL(cast.Embeds[0].URL), c.img.SetSize(20, 10))
+	cmds := []tea.Cmd{
+		c.pfp.SetURL(cast.Author.PfpURL), c.pfp.SetSize(4, 4),
 	}
-	return c, nil
+	if len(cast.Embeds) > 0 {
+		cmds = append(cmds, c.img.SetURL(cast.Embeds[0].URL), c.img.SetSize(10, 10))
+	}
+	return c, tea.Batch(cmds...)
 }
 
 func (m *CastView) Init() tea.Cmd {
@@ -138,9 +141,15 @@ func (m *CastView) Init() tea.Cmd {
 }
 
 func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	cmds := []tea.Cmd{}
 	img, cmd := m.img.Update(msg)
 	m.img = img
-	return m, cmd
+	cmds = append(cmds, cmd)
+
+	pfp, cmd := m.pfp.Update(msg)
+	m.pfp = pfp
+	cmds = append(cmds, cmd)
+	return m, tea.Batch(cmds...)
 }
 
 func (m *CastView) View() string {
@@ -155,7 +164,14 @@ func (m *CastView) String() string {
 }
 
 func (i *CastView) Title() string {
-	return userNameStyle.Render(i.cast.Author.Username)
+
+	return lipgloss.JoinHorizontal(lipgloss.Center,
+		i.pfp.View(),
+		lipgloss.JoinVertical(lipgloss.Top,
+			titleStyle.Render(i.cast.Author.DisplayName),
+			fmt.Sprintf("@%s", i.cast.Author.Username),
+		),
+	)
 }
 
 func (i *CastView) Description() string {
@@ -179,7 +195,7 @@ func (i *CastView) Description() string {
 
 	return lipgloss.JoinVertical(lipgloss.Top,
 		content,
-		img,
+		imgStyle.Render(img),
 		stats,
 	)
 }

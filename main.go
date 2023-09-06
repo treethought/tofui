@@ -17,7 +17,7 @@ const HUB_URL = "https://api.neynar.com/v2/farcaster"
 
 func main() {
 	client := api.NewClient(HUB_URL, API_KEY)
-	app := NewApp()
+	app := ui.NewApp()
 
 	feed := ui.NewFeedView(client)
 	app.Register("feed", feed)

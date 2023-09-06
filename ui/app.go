@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"log"
@@ -94,6 +94,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			um, cmd := m.Update(msg)
 			a.models[n] = um
 			cmds = append(cmds, cmd)
+			SetHeight(msg.Height)
+			SetWidth(msg.Width)
+
 		}
 	case tea.KeyMsg:
 		switch msg.String() {
