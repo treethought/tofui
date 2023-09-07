@@ -41,14 +41,32 @@ var (
 	)
 )
 
+func CastHeader(cast *api.Cast, img ImageModel) string {
+	return lipgloss.JoinHorizontal(lipgloss.Center,
+		img.View(),
+		lipgloss.JoinVertical(lipgloss.Top,
+			titleStyle.Render(cast.Author.DisplayName),
+			fmt.Sprintf("@%s", cast.Author.Username),
+		),
+	)
+}
+
+func CastContent(cast *api.Cast, maxHeight int, imgs ...ImageModel) string {
+	m, err := md.Render(cast.Text)
+	if err != nil {
+		m = cast.Text
+	}
+	return contentStyle.MaxHeight(maxHeight).Render(m)
+}
+
 type CastFeedItem struct {
-	cast api.Cast
+	cast *api.Cast
 	pfp  ImageModel
 }
 
 // NewCastFeedItem displays a cast in compact form within a list
 // implements list.Item (and tea.Model only for updating image)
-func NewCastFeedItem(cast api.Cast) (*CastFeedItem, tea.Cmd) {
+func NewCastFeedItem(cast *api.Cast) (*CastFeedItem, tea.Cmd) {
 	c := &CastFeedItem{
 		cast: cast,
 		pfp:  NewImage(false, true, special),
@@ -74,21 +92,11 @@ func (m *CastFeedItem) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *CastFeedItem) View() string { return "" }
 
 func (i *CastFeedItem) Title() string {
-	return lipgloss.JoinHorizontal(lipgloss.Center,
-		i.pfp.View(),
-		lipgloss.JoinVertical(lipgloss.Top,
-			titleStyle.Render(i.cast.Author.DisplayName),
-			fmt.Sprintf("@%s", i.cast.Author.Username),
-		),
-	)
+	return CastHeader(i.cast, i.pfp)
 }
 
 func (i *CastFeedItem) Description() string {
-	m, err := md.Render(i.cast.Text)
-	if err != nil {
-		m = i.cast.Text
-	}
-	return contentStyle.MaxHeight(3).Render(m)
+	return CastContent(i.cast, 3)
 }
 
 func (i *CastFeedItem) FilterValue() string {

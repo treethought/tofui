@@ -23,6 +23,9 @@ func main() {
 	app.Register("feed", feed)
 	app.SetFocus("feed")
 
+	castDetails := ui.NewCastView(nil)
+	app.Register("cast", castDetails)
+
 	f, err := tea.LogToFile("debug.log", "debug")
 	if err != nil {
 		fmt.Println("fatal:", err)

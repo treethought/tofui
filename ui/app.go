@@ -4,10 +4,16 @@ import (
 	"log"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/treethought/castr/api"
 )
 
 type FocusMsg struct {
 	Name string
+}
+
+type SelectCastMsg struct {
+	cast *api.Cast
 }
 
 type App struct {
@@ -89,6 +95,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if cmd != nil {
 			return a, cmd
 		}
+	case SelectCastMsg:
+		focusCmd := a.SetFocus("cast")
+		cmd := a.GetModel("cast").(*CastView).SetCast(msg.cast)
+		return a, tea.Batch(cmd, focusCmd)
+
 	case tea.WindowSizeMsg:
 		for n, m := range a.models {
 			um, cmd := m.Update(msg)
@@ -96,7 +107,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 			SetHeight(msg.Height)
 			SetWidth(msg.Width)
-
 		}
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -107,7 +117,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if cmd != nil {
 				return a, cmd
 			}
-			return a, nil
+      return a, a.SetFocus("feed")
 		}
 	}
 	current := a.GetFocused()

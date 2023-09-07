@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 )
 
 type Client struct {
@@ -33,52 +32,7 @@ type FeedRequest struct {
 }
 
 type FeedResponse struct {
-	Casts []Cast
-}
-
-type Cast struct {
-	Hash         string
-	ThreadHash   string
-	ParentHash   string
-	ParentURL    string
-	ParentAuthor struct {
-		FIID int32
-	}
-	Author struct {
-		FIID        int32
-		Username    string
-		DisplayName string `json:"display_name"`
-		PfpURL      string `json:"pfp_url"`
-		Profile     struct {
-			Bio struct {
-				Text string
-			}
-		}
-		FollowerCount  int32
-		FollowingCount int32
-		Verifications  []string
-		ActiveStatus   string
-	}
-	Text      string
-	Timestamp time.Time
-	Embeds    []struct {
-		URL string
-	}
-	Reactions struct {
-		Likes   []Reaction
-		Recasts []Reaction
-	}
-	// Replies struct {
-	//    Count int32 `json:"count",string`
-	//  }
-}
-
-func (c Cast) HumanTime() string {
-	return c.Timestamp.Format("Jan 2 15:04")
-}
-
-type Reaction struct {
-	FIID int32
+	Casts []*Cast
 }
 
 func (c *Client) GetFeed(r FeedRequest) (*FeedResponse, error) {

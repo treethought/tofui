@@ -79,10 +79,21 @@ func (m *FeedView) setItems(feed *api.FeedResponse) tea.Cmd {
 	return tea.Batch(cmd, tea.Batch(cmds...))
 }
 
+func selectCast(cast *api.Cast) tea.Cmd {
+	return func() tea.Msg {
+		return SelectCastMsg{cast: cast}
+	}
+}
+
 func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if msg.String() == "enter" {
+			current := m.list.SelectedItem().(*CastFeedItem)
+			return m, selectCast(current.cast)
+		}
+
 		if msg.String() == "o" {
 			current := m.list.SelectedItem().(*CastFeedItem)
 			cast := current.cast
