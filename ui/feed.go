@@ -3,8 +3,6 @@ package ui
 import (
 	"fmt"
 	"log"
-	"os/exec"
-	"runtime"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -13,22 +11,9 @@ import (
 	"github.com/treethought/castr/api"
 )
 
-var docStyle = lipgloss.NewStyle().Margin(1, 2)
-
-type castItem struct {
-	cast api.Cast
-}
-
-func (i castItem) Title() string {
-	return i.cast.Author.Username
-}
-func (i castItem) Description() string {
-	return i.cast.Text
-}
-
-func (i castItem) FilterValue() string {
-	return i.cast.Author.Username
-}
+var (
+	docStyle = lipgloss.NewStyle().Margin(1, 2)
+)
 
 type FeedView struct {
 	client *api.Client
@@ -38,6 +23,7 @@ type FeedView struct {
 
 func newList() list.Model {
 	d := list.NewDefaultDelegate()
+	d.SetHeight(6)
 	d.Styles.NormalTitle.Width(80)
 	d.Styles.SelectedTitle.Width(80)
 	d.Styles.NormalTitle.MaxHeight(2)
@@ -47,8 +33,8 @@ func newList() list.Model {
 	d.Styles.NormalDesc.MaxHeight(10)
 	d.Styles.DimmedDesc.Width(80)
 	d.Styles.NormalDesc.Width(80)
-	// d.SetHeight(8)
-	list := list.New([]list.Item{}, castItemDelegate{}, 0, 0)
+
+	list := list.New([]list.Item{}, d, 0, 0)
 	list.KeyMap.CursorUp.SetKeys("k", "up")
 	list.KeyMap.CursorDown.SetKeys("j", "down")
 	list.KeyMap.Quit.SetKeys("ctrl+c")
@@ -82,7 +68,7 @@ func (m *FeedView) setItems(feed *api.FeedResponse) tea.Cmd {
 	height := 0
 	cmds := []tea.Cmd{}
 	for _, cast := range feed.Casts {
-		ci, cmd := NewCastView(cast)
+		ci, cmd := NewCastFeedItem(cast)
 		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
@@ -97,11 +83,8 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if msg.String() == "ctrl+c" {
-			return m, tea.Quit
-		}
 		if msg.String() == "o" {
-			current := m.list.SelectedItem().(*CastView)
+			current := m.list.SelectedItem().(*CastFeedItem)
 			cast := current.cast
 
 			return m, OpenURL(fmt.Sprintf("https://warpcast.com/%s/%s", cast.Author.Username, cast.Hash))
@@ -119,7 +102,7 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.list = l
 
 	for _, i := range m.list.Items() {
-		if i, ok := i.(*CastView); ok {
+		if i, ok := i.(*CastFeedItem); ok {
 			_, cmd := i.Update(msg)
 			cmds = append(cmds, cmd)
 		}
@@ -131,25 +114,4 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *FeedView) View() string {
 	return m.list.View()
 
-}
-
-func OpenURL(url string) tea.Cmd {
-	return func() tea.Msg {
-		var cmd string
-		var args []string
-
-		switch runtime.GOOS {
-		case "windows":
-			cmd = "cmd"
-			args = []string{"/c", "start"}
-		case "darwin":
-			cmd = "open"
-		default: // "linux", "freebsd", "openbsd", "netbsd"
-			cmd = "xdg-open"
-		}
-		args = append(args, url)
-
-		_ = exec.Command(cmd, args...).Start()
-		return nil
-	}
 }

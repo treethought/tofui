@@ -107,7 +107,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if cmd != nil {
 				return a, cmd
 			}
-			return a, a.SetFocus("methods")
+			return a, nil
 		}
 	}
 	current := a.GetFocused()
