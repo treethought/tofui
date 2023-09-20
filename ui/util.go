@@ -2,9 +2,15 @@ package ui
 
 import (
 	"os/exec"
+	"regexp"
 	"runtime"
 
 	tea "github.com/charmbracelet/bubbletea"
+)
+
+var (
+	regexPattern = `https?://[^\s<>{}[\](),]+`
+	re           = regexp.MustCompile(regexPattern)
 )
 
 func OpenURL(url string) tea.Cmd {
@@ -26,4 +32,8 @@ func OpenURL(url string) tea.Cmd {
 		_ = exec.Command(cmd, args...).Start()
 		return nil
 	}
+}
+
+func extractLinks(input string) []string {
+	return re.FindAllString(input, -1)
 }

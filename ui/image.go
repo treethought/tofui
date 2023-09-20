@@ -9,6 +9,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -128,6 +129,7 @@ func downloadImage(width int, url string) tea.Cmd {
 		ep, err := getEmbedPreview(url)
 		if err == nil && ep.ImageURL != "" {
 			dUrl = ep.ImageURL
+      log.Println("got embed preview: ", dUrl)
 		}
 
 		hash := sha256.Sum256([]byte(dUrl))
@@ -291,11 +293,13 @@ func (m ImageModel) Update(msg tea.Msg) (ImageModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case imageDownloadMsg:
 		if msg.url == m.URL {
+      log.Println("downloaded image: ", msg.filename) 
 			cmds = append(cmds, m.SetFileName(msg.filename))
 		}
 
 	case convertImageToStringMsg:
 		if msg.filename == m.FileName {
+      log.Println("setting image string: ", msg.str)
 			m.ImageString = lipgloss.NewStyle().
 				Width(m.Viewport.Width).
 				Height(m.Viewport.Height).
@@ -306,6 +310,7 @@ func (m ImageModel) Update(msg tea.Msg) (ImageModel, tea.Cmd) {
 		return m, nil
 	case downloadError:
 		if msg.url == m.URL {
+			log.Println("downloadError error: ", msg.err)
 			m.FileName = ""
 			m.ImageString = lipgloss.NewStyle().
 				Width(m.Viewport.Width).
@@ -314,6 +319,7 @@ func (m ImageModel) Update(msg tea.Msg) (ImageModel, tea.Cmd) {
 		}
 	case decodeError:
 		if msg.filename == m.FileName {
+			log.Println("decode error: ", msg.err)
 			m.FileName = ""
 			m.ImageString = lipgloss.NewStyle().
 				Width(m.Viewport.Width).

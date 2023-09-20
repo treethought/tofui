@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
@@ -51,11 +52,19 @@ func CastHeader(cast *api.Cast, img ImageModel) string {
 	)
 }
 
-func CastContent(cast *api.Cast, maxHeight int, imgs ...ImageModel) string {
+func CastContent(cast *api.Cast, maxHeight int, linkHelp bool) string {
 	m, err := md.Render(cast.Text)
 	if err != nil {
 		m = cast.Text
 	}
+
+	if linkHelp {
+		links := extractLinks(cast.Text)
+		for i, link := range links {
+			m = strings.Replace(m, link, fmt.Sprintf("%s (%d)", link, i), 1)
+		}
+	}
+
 	return contentStyle.MaxHeight(maxHeight).Render(m)
 }
 
@@ -96,7 +105,7 @@ func (i *CastFeedItem) Title() string {
 }
 
 func (i *CastFeedItem) Description() string {
-	return CastContent(i.cast, 3)
+	return CastContent(i.cast, 3, false)
 }
 
 func (i *CastFeedItem) FilterValue() string {

@@ -98,7 +98,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SelectCastMsg:
 		focusCmd := a.SetFocus("cast")
 		cmd := a.GetModel("cast").(*CastView).SetCast(msg.cast)
-		return a, tea.Batch(cmd, focusCmd)
+    return a, tea.Sequence(focusCmd, cmd)
 
 	case tea.WindowSizeMsg:
 		for n, m := range a.models {
