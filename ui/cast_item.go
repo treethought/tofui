@@ -60,16 +60,18 @@ func CastContent(cast *api.Cast, maxHeight int, imgs ...ImageModel) string {
 }
 
 type CastFeedItem struct {
-	cast *api.Cast
-	pfp  ImageModel
+	cast    *api.Cast
+	pfp     ImageModel
+	compact bool
 }
 
 // NewCastFeedItem displays a cast in compact form within a list
 // implements list.Item (and tea.Model only for updating image)
-func NewCastFeedItem(cast *api.Cast) (*CastFeedItem, tea.Cmd) {
+func NewCastFeedItem(cast *api.Cast, compact bool) (*CastFeedItem, tea.Cmd) {
 	c := &CastFeedItem{
-		cast: cast,
-		pfp:  NewImage(false, true, special),
+		cast:    cast,
+		pfp:     NewImage(false, true, special),
+		compact: compact,
 	}
 
 	cmds := []tea.Cmd{
@@ -90,6 +92,15 @@ func (m *CastFeedItem) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *CastFeedItem) View() string { return "" }
+
+func (m *CastFeedItem) AsRow() []string {
+	return []string{
+		m.cast.Hash,
+		m.pfp.View(),
+		m.cast.Author.DisplayName,
+		m.cast.Text,
+	}
+}
 
 func (i *CastFeedItem) Title() string {
 	return CastHeader(i.cast, i.pfp)
