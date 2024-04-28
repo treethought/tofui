@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/treethought/castr/api"
+	"github.com/treethought/castr/db"
 	"github.com/treethought/castr/ui"
 )
 
@@ -16,6 +17,8 @@ var API_KEY = os.Getenv("API_KEY")
 const HUB_URL = "https://api.neynar.com/v2/farcaster"
 
 func main() {
+	db := db.GetDB()
+	defer db.Close()
 	client := api.NewClient(HUB_URL, API_KEY)
 	app := ui.NewApp()
 

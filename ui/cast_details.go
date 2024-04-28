@@ -9,15 +9,15 @@ import (
 
 type CastView struct {
 	cast *api.Cast
-	img  ImageModel
-	pfp  ImageModel
+	img  *ImageModel
+	pfp  *ImageModel
 }
 
 func NewCastView(cast *api.Cast) *CastView {
 	c := &CastView{
 		cast: cast,
 		pfp:  NewImage(false, true, special),
-		img:  NewImage(false, true, special),
+		img:  NewImage(true, true, special),
 	}
 	return c
 }
@@ -32,10 +32,10 @@ func (m *CastView) Init() tea.Cmd {
 		return nil
 	}
 	cmds := []tea.Cmd{
-		m.pfp.SetURL(m.cast.Author.PfpURL), m.pfp.SetSize(4, 4),
+		m.pfp.SetURL(m.cast.Author.PfpURL, false), m.pfp.SetSize(4, 4),
 	}
 	if len(m.cast.Embeds) > 0 {
-		cmds = append(cmds, m.img.SetURL(m.cast.Embeds[0].URL), m.img.SetSize(10, 10))
+		cmds = append(cmds, m.img.SetURL(m.cast.Embeds[0].URL, true), m.img.SetSize(10, 10))
 	}
 	return tea.Batch(cmds...)
 }
@@ -56,5 +56,6 @@ func (m *CastView) View() string {
 	return lipgloss.JoinVertical(lipgloss.Top,
 		CastHeader(m.cast, m.pfp),
 		CastContent(m.cast, 10),
+		m.img.View(),
 	)
 }

@@ -2,17 +2,20 @@
 package ui
 
 import (
-	"crypto/sha256"
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
 	"image"
+	"image/draw"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
+	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -23,6 +26,8 @@ import (
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/tiff"
 	_ "golang.org/x/image/webp"
+
+	"github.com/treethought/castr/db"
 )
 
 type imageDownloadMsg struct {
@@ -30,8 +35,8 @@ type imageDownloadMsg struct {
 	filename string
 }
 type convertImageToStringMsg struct {
-	filename string
-	str      string
+	url string
+	str string
 }
 
 type downloadError struct {
@@ -40,8 +45,8 @@ type downloadError struct {
 }
 
 type decodeError struct {
-	err      error
-	filename string
+	err error
+	url string
 }
 
 const (
@@ -83,6 +88,12 @@ type embedPreview struct {
 }
 
 func getEmbedPreview(url string) (*embedPreview, error) {
+	if cached, err := db.GetDB().Get([]byte(fmt.Sprintf("embed:%s", url))); err == nil {
+		p := &embedPreview{}
+		if err := json.Unmarshal(cached, p); err != nil {
+			return p, nil
+		}
+	}
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -91,6 +102,7 @@ func getEmbedPreview(url string) (*embedPreview, error) {
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
+		log.Println("failed getting document", url, err)
 		return nil, err
 	}
 
@@ -110,80 +122,94 @@ func getEmbedPreview(url string) (*embedPreview, error) {
 	if preview.ImageURL == "" {
 		preview.ImageURL = doc.Find("meta[name='twitter:image']").AttrOr("content", "")
 	}
+	if preview.ImageURL != "" {
+		if d, err := json.Marshal(preview); err == nil {
+			if err := db.GetDB().Set([]byte(fmt.Sprintf("embed:%s", url)), d); err != nil {
+				log.Println("error caching embed", err)
+				return preview, nil
+			}
+		}
+	}
 
 	return preview, nil
 }
 
-func downloadImage(width int, url string) tea.Cmd {
+func getImageCmd(width int, url string, embed bool) tea.Cmd {
 	return func() tea.Msg {
-		cacheDir, err := os.UserCacheDir()
+		data, err := getImage(width, url, embed)
 		if err != nil {
 			return downloadError{err: err, url: url}
 		}
-
-		imgageCacheDir := filepath.Join(cacheDir, "castr", "img")
-		os.MkdirAll(imgageCacheDir, os.ModePerm)
-
-		dUrl := url
-		ep, err := getEmbedPreview(url)
-		if err == nil && ep.ImageURL != "" {
-			dUrl = ep.ImageURL
-		}
-
-		hash := sha256.Sum256([]byte(dUrl))
-
-		fileName := filepath.Join(imgageCacheDir, fmt.Sprintf("%x", hash))
-
-		// check if file exists
-		if _, ferr := os.Stat(fileName); ferr == nil {
-			return imageDownloadMsg{url: url, filename: fileName}
-		}
-
-		f, err := os.Create(fileName)
+		imgString, err := convertImageToString(width, data)
 		if err != nil {
-			return downloadError{err: err, url: url}
+			return decodeError{err: err, url: url}
 		}
-		defer f.Close()
-
-		req, err := http.NewRequest("GET", dUrl, nil)
-		if err != nil {
-			return downloadError{err: err, url: url}
-		}
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return downloadError{err: err, url: url}
-		}
-		if resp.StatusCode != 200 {
-			return downloadError{err: fmt.Errorf("bad status code: %d", resp.StatusCode), url: url}
-		}
-
-		_, err = io.Copy(f, resp.Body)
-		if err != nil {
-			return downloadError{err: err, url: url}
-		}
-
-		return imageDownloadMsg{url: url, filename: fileName}
+		return convertImageToStringMsg{url: url, str: imgString}
 	}
 }
 
-// convertImageToStringCmd redraws the image based on the width provided.
-func convertImageToStringCmd(width int, filename string) tea.Cmd {
-	return func() tea.Msg {
-		imageContent, err := os.Open(filepath.Clean(filename))
-		if err != nil {
-			return downloadError{err: err, url: filename}
+func getImage(width int, url string, embed bool) ([]byte, error) {
+	if embed {
+		ep, err := getEmbedPreview(url)
+		if err == nil && ep.ImageURL != "" {
+			url = ep.ImageURL
 		}
-
-		img, _, err := image.Decode(imageContent)
-		if err != nil {
-			return downloadError{err: err, url: filename}
-		}
-
-		imageString := ToString(width, img)
-
-		return convertImageToStringMsg{filename: filename, str: imageString}
 	}
+
+	cached, err := db.GetDB().Get([]byte(fmt.Sprintf("img:%s", url)))
+	if err == nil {
+		return cached, nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	// set headers that would be sent in browser like user agent so we don't get ratelimited
+	req.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3")
+	req.Header.Set("Accept", "image/png,image/jpeg,image/*,*/*;q=0.8")
+	req.Header.Add("Accept-Language", "en-US,en;q=0.5")
+	// req.Header.Add("Accept-Encoding", "gzip, deflate, br")
+	req.Header.Add("Connection", "keep-alive")
+	req.Header.Add("Upgrade-Insecure-Requests", "1")
+	req.Header.Add("Cache-Control", "max-age=0")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("bad status code: %d", resp.StatusCode)
+	}
+	d, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if err := db.GetDB().Set([]byte(fmt.Sprintf("img:%s", url)), d); err != nil {
+		log.Println("error saving image", err)
+	}
+	return d, nil
+}
+
+func convertImageToString(width int, ib []byte) (string, error) {
+	ir := bytes.NewReader(ib)
+
+	img, _, err := image.Decode(ir)
+	if err != nil {
+		return "", err
+	}
+	// Check if the decoded image is of type NRGBA (non-alpha-premultiplied color)
+	// If it's not, convert it to NRGBA
+	// needed for bubbletea
+	if _, ok := img.(*image.NRGBA); !ok {
+		rgba := image.NewNRGBA(img.Bounds())
+		draw.Draw(rgba, rgba.Bounds(), img, img.Bounds().Min, draw.Src)
+		img = rgba
+	}
+
+	return ToString(width, img), nil
 }
 
 // ImageModel represents the properties of a code bubble.
@@ -192,13 +218,12 @@ type ImageModel struct {
 	BorderColor lipgloss.AdaptiveColor
 	Active      bool
 	Borderless  bool
-	FileName    string
 	URL         string
 	ImageString string
 }
 
 // New creates a new instance of code.
-func NewImage(active, borderless bool, borderColor lipgloss.AdaptiveColor) ImageModel {
+func NewImage(active, borderless bool, borderColor lipgloss.AdaptiveColor) *ImageModel {
 	viewPort := viewport.New(0, 0)
 	border := lipgloss.NormalBorder()
 
@@ -212,7 +237,7 @@ func NewImage(active, borderless bool, borderColor lipgloss.AdaptiveColor) Image
 		Border(border).
 		BorderForeground(borderColor)
 
-	return ImageModel{
+	return &ImageModel{
 		Viewport:    viewPort,
 		Active:      active,
 		Borderless:  borderless,
@@ -225,17 +250,17 @@ func (m ImageModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m *ImageModel) SetURL(url string) tea.Cmd {
+func (m *ImageModel) SetURL(url string, embed bool) tea.Cmd {
 	m.URL = url
-	return downloadImage(m.Viewport.Width, url)
+	return getImageCmd(m.Viewport.Width, url, embed)
 }
 
 // SetFileName sets current file to highlight, this
 // returns a cmd which will highlight the text.
-func (m *ImageModel) SetFileName(filename string) tea.Cmd {
-	m.FileName = filename
-	return convertImageToStringCmd(m.Viewport.Width, filename)
-}
+// func (m *ImageModel) SetFileName(filename string) tea.Cmd {
+// 	m.FileName = filename
+// 	return convertImageToStringCmd(m.Viewport.Width, filename)
+// }
 
 // SetBorderColor sets the current color of the border.
 func (m *ImageModel) SetBorderColor(color lipgloss.AdaptiveColor) {
@@ -259,8 +284,8 @@ func (m *ImageModel) SetSize(w, h int) tea.Cmd {
 		Border(border).
 		BorderForeground(m.BorderColor)
 
-	if m.FileName != "" {
-		return convertImageToStringCmd(m.Viewport.Width, m.FileName)
+	if m.ImageString != "" {
+		return getImageCmd(w, m.URL, false)
 	}
 
 	return nil
@@ -282,39 +307,37 @@ func (m *ImageModel) SetBorderless(borderless bool) {
 }
 
 // Update handles updating the UI of a code bubble.
-func (m ImageModel) Update(msg tea.Msg) (ImageModel, tea.Cmd) {
+func (m *ImageModel) Update(msg tea.Msg) (*ImageModel, tea.Cmd) {
 	var (
 		cmd  tea.Cmd
 		cmds []tea.Cmd
 	)
 
 	switch msg := msg.(type) {
-	case imageDownloadMsg:
-		if msg.url == m.URL {
-			cmds = append(cmds, m.SetFileName(msg.filename))
-		}
+	// case imageDownloadMsg:
+	// 	if msg.url == m.URL {
+	// 		cmds = append(cmds, m.SetFileName(msg.filename))
+	// 	}
 
 	case convertImageToStringMsg:
-		if msg.filename == m.FileName {
+		if msg.url == m.URL {
 			m.ImageString = lipgloss.NewStyle().
 				Width(m.Viewport.Width).
 				Height(m.Viewport.Height).
 				Render(msg.str)
 			m.Viewport.SetContent(m.ImageString)
 		}
-
-		return m, nil
 	case downloadError:
+		log.Println("download error", msg.err.Error())
 		if msg.url == m.URL {
-			m.FileName = ""
 			m.ImageString = lipgloss.NewStyle().
 				Width(m.Viewport.Width).
 				Height(m.Viewport.Height).
 				Render("Error: " + msg.err.Error())
 		}
 	case decodeError:
-		if msg.filename == m.FileName {
-			m.FileName = ""
+		log.Println("decode error", msg.err.Error())
+		if msg.url == m.URL {
 			m.ImageString = lipgloss.NewStyle().
 				Width(m.Viewport.Width).
 				Height(m.Viewport.Height).

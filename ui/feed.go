@@ -175,19 +175,18 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if m.compact {
 		t, cmd := m.table.Update(msg)
+		cmds = append(cmds, cmd)
 		m.table = t
-		return m, cmd
+	} else {
+		l, cmd := m.list.Update(msg)
+		cmds = append(cmds, cmd)
+		m.list = l
+
 	}
 
-	l, cmd := m.list.Update(msg)
-	cmds = append(cmds, cmd)
-	m.list = l
-
-	for _, i := range m.list.Items() {
-		if i, ok := i.(*CastFeedItem); ok {
-			_, cmd := i.Update(msg)
-			cmds = append(cmds, cmd)
-		}
+	for _, i := range m.items {
+		_, cmd := i.Update(msg)
+		cmds = append(cmds, cmd)
 	}
 
 	return m, tea.Batch(cmds...)

@@ -20,11 +20,15 @@ var (
 	highlight = lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
 	special   = lipgloss.AdaptiveColor{Light: "#43BF6D", Dark: "#73F59F"}
 
-	titleStyle = lipgloss.NewStyle().
-			MarginRight(5).
-			Foreground(highlight)
+	displayNameStyle = lipgloss.NewStyle().
+				MarginRight(5).
+				Foreground(highlight)
+
+	usernameStyle = lipgloss.NewStyle()
 
 	imgStyle = lipgloss.NewStyle()
+
+	headerStyle = lipgloss.NewStyle().BorderBottom(true)
 
 	infoStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.NormalBorder()).
@@ -41,13 +45,18 @@ var (
 	)
 )
 
-func CastHeader(cast *api.Cast, img ImageModel) string {
-	return lipgloss.JoinHorizontal(lipgloss.Center,
+func CastHeader(cast *api.Cast, img *ImageModel) string {
+	return headerStyle.Render(lipgloss.JoinHorizontal(lipgloss.Center,
 		img.View(),
-		lipgloss.JoinVertical(lipgloss.Top,
-			titleStyle.Render(cast.Author.DisplayName),
-			fmt.Sprintf("@%s", cast.Author.Username),
+		lipgloss.JoinHorizontal(lipgloss.Top,
+			displayNameStyle.Render(
+				cast.Author.DisplayName,
+			),
+			usernameStyle.Render(
+				fmt.Sprintf("@%s", cast.Author.Username),
+			),
 		),
+	),
 	)
 }
 
@@ -61,7 +70,7 @@ func CastContent(cast *api.Cast, maxHeight int, imgs ...ImageModel) string {
 
 type CastFeedItem struct {
 	cast    *api.Cast
-	pfp     ImageModel
+	pfp     *ImageModel
 	compact bool
 }
 
@@ -70,12 +79,17 @@ type CastFeedItem struct {
 func NewCastFeedItem(cast *api.Cast, compact bool) (*CastFeedItem, tea.Cmd) {
 	c := &CastFeedItem{
 		cast:    cast,
-		pfp:     NewImage(false, true, special),
+		pfp:     NewImage(true, true, special),
 		compact: compact,
 	}
 
 	cmds := []tea.Cmd{
-		c.pfp.SetURL(cast.Author.PfpURL), c.pfp.SetSize(4, 4),
+		c.pfp.SetURL(cast.Author.PfpURL, false),
+	}
+	if c.compact {
+		cmds = append(cmds, c.pfp.SetSize(2, 1))
+	} else {
+		cmds = append(cmds, c.pfp.SetSize(4, 4))
 	}
 	return c, tea.Batch(cmds...)
 }
