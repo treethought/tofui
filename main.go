@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -29,23 +27,35 @@ func main() {
 	defer db.Close()
 	client := api.NewClient(HUB_URL, API_KEY)
 	// update channel mappings
-	go func() {
-		lastloaded, err := db.Get([]byte("channelsloaded"))
-		// convert lastloaded int64
-		update := false
-		lastSec, err := strconv.ParseInt(string(lastloaded), 10, 64)
-		if err != nil {
-			update = true
-		}
-		if update || time.Since(time.Unix(int64(lastSec), 0)) > time.Hour {
-      log.Println("fetching channels")
-			err := client.FetchAllChannels()
-			if err != nil {
-				log.Fatal("error fetching channels: ", err)
-			}
-		}
-    log.Println("channels loaded")
-	}()
+	// go func() {
+	// 	lastloaded, err := db.Get([]byte("channelsloaded"))
+	// 	// convert lastloaded int64
+	// 	update := false
+	// 	lastSec, err := strconv.ParseInt(string(lastloaded), 10, 64)
+	// 	if err != nil {
+	// 		update = true
+	// 	}
+	// 	if update || time.Since(time.Unix(int64(lastSec), 0)) > time.Hour {
+	// 		log.Println("fetching channels")
+	// 		err := client.FetchAllChannels()
+	// 		if err != nil {
+	// 			log.Fatal("error fetching channels: ", err)
+	// 		}
+	// 	}
+	// 	log.Println("channels loaded")
+	// }()
+
+	signer := api.GetSigner()
+	if signer == nil {
+		fmt.Println("no signer found, visit http://localhost:8000/signin to sign in")
+		api.StartSigninServer(func(fid uint64, uuid string) {
+			signer := &api.Signer{FID: fid, UUID: uuid}
+			api.SetSigner(signer)
+			log.Println("signed in!")
+		})
+	}
+
+	log.Println("signer found, FID: ", signer.FID)
 
 	app := ui.NewApp()
 

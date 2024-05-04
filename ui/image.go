@@ -149,6 +149,10 @@ func getImageCmd(width int, url string, embed bool) tea.Cmd {
 }
 
 func getImage(width int, url string, embed bool) ([]byte, error) {
+	if strings.HasSuffix(url, ".gif") {
+		return nil, fmt.Errorf("gif not supported")
+	}
+
 	if embed {
 		ep, err := getEmbedPreview(url)
 		if err == nil && ep.ImageURL != "" {
@@ -328,16 +332,16 @@ func (m *ImageModel) Update(msg tea.Msg) (*ImageModel, tea.Cmd) {
 			m.Viewport.SetContent(m.ImageString)
 		}
 	case downloadError:
-		log.Println("download error", msg.err.Error())
 		if msg.url == m.URL {
+			log.Println("download error: ", msg.url, msg.err.Error())
 			m.ImageString = lipgloss.NewStyle().
 				Width(m.Viewport.Width).
 				Height(m.Viewport.Height).
 				Render("Error: " + msg.err.Error())
 		}
 	case decodeError:
-		log.Println("decode error", msg.err.Error())
 		if msg.url == m.URL {
+			log.Println("decode error: ", msg.url, msg.err.Error())
 			m.ImageString = lipgloss.NewStyle().
 				Width(m.Viewport.Width).
 				Height(m.Viewport.Height).

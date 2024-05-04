@@ -28,7 +28,6 @@ type FeedView struct {
 
 func newTable() table.Model {
 	columns := []table.Column{
-		{Title: "hash", Width: 20},
 		{Title: "channel", Width: 20},
 		{Title: "user", Width: 20},
 		{Title: "cast", Width: 200},
@@ -95,8 +94,11 @@ func NewFeedView(client *api.Client) *FeedView {
 }
 
 func (m *FeedView) Init() tea.Cmd {
+  if len(m.items) > 0 {
+    return nil
+  }
 	return func() tea.Msg {
-		feed, err := m.client.GetFeed(api.FeedRequest{FID: 4964, FeedType: "following", Limit: 20})
+		feed, err := m.client.GetFeed(api.FeedRequest{FeedType: "following", Limit: 20})
 		if err != nil {
 			log.Println("feedview error getting feed", err)
 			return err
@@ -185,6 +187,7 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.table.SetHeight(msg.Height - v)
 		return m, nil
 	}
+
 	newItems := []*CastFeedItem{}
 	for _, c := range m.items {
 		ni, cmd := c.Update(msg)

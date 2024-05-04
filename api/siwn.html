@@ -1,0 +1,22 @@
+<html>
+
+<body>
+  <div class="neynar_signin" data-client_id="4e1a1864-3e14-4082-bbc9-d92706e7e8c4"
+    data-success-callback="onSignInSuccess" data-theme="dark">
+    <!-- defaults to light, unless specified -->
+  </div>
+  <script src="https://neynarxyz.github.io/siwn/raw/1.2.0/index.js" async></script>
+  <script>
+    // Define the onSignInSuccess callback function
+    function onSignInSuccess(data) {
+      console.log("Sign-in success");
+      window.location.href =
+        "http://localhost:8000/signin/success?fid=" +
+        data.fid +
+        "&signer_uuid=" +
+        data.signer_uuid;
+    }
+  </script>
+</body>
+
+</html>
