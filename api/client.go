@@ -14,6 +14,7 @@ import (
 
 var (
 	client *Client
+	signer *Signer
 	once   sync.Once
 )
 
@@ -36,9 +37,39 @@ func NewClient(url, apiKey string) *Client {
 	return client
 }
 
+func SetSigner(s *Signer) {
+	once.Do(func() {
+		signer = s
+		d, _ := json.Marshal(s)
+		if err := db.GetDB().Set([]byte("signer"), d); err != nil {
+			log.Fatal("failed to save signer: ", err)
+		}
+	})
+}
+func GetSigner() *Signer {
+	if signer == nil {
+		d, err := db.GetDB().Get([]byte("signer"))
+		if err != nil {
+			log.Println("no signer found in db")
+			return nil
+		}
+		signer = &Signer{}
+		if err = json.Unmarshal(d, signer); err != nil {
+			log.Println("failed to unmarshal signer: ", err)
+			return nil
+		}
+	}
+	return signer
+}
+
+type Signer struct {
+	FID  uint64
+	UUID string
+}
+
 type FeedRequest struct {
 	FeedType   string
-	FID        int32
+	FID        uint64
 	FilterType string
 	ParentURL  string
 	FIDs       []int32
@@ -161,10 +192,21 @@ func (c *Client) GetChannelByParentURL(pu string) (*Channel, error) {
 	if err = json.NewDecoder(res.Body).Decode(resp); err != nil {
 		return nil, err
 	}
+	if resp.Name == "" {
+		return nil, fmt.Errorf("channel name empty")
+	}
+
+	d, _ := json.Marshal(resp)
+	if err := db.GetDB().Set([]byte(key), []byte(d)); err != nil {
+		log.Println("failed to cache channel: ", err)
+	}
 	return resp, nil
 }
 
 func (c *Client) GetFeed(r FeedRequest) (*FeedResponse, error) {
+	if r.FID == 0 {
+		r.FID = GetSigner().FID
+	}
 	url := c.buildEndpoint(
 		fmt.Sprintf("/feed?feed_type=%s&fid=%d&filter_type=%s&parent_url=%s&fids=%v&cursor=%s&limit=%d",
 			r.FeedType, r.FID, r.FilterType, r.ParentURL, r.FIDs, r.Cursor, r.Limit))

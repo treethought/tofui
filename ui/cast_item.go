@@ -153,7 +153,6 @@ func (m *CastFeedItem) View() string { return "" }
 
 func (m *CastFeedItem) AsRow() []string {
 	return []string{
-		m.cast.Hash,
 		m.channel,
 		m.cast.Author.DisplayName,
 		m.cast.Text,
