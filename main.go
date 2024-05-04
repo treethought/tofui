@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -17,9 +19,34 @@ var API_KEY = os.Getenv("API_KEY")
 const HUB_URL = "https://api.neynar.com/v2/farcaster"
 
 func main() {
+	f, err := tea.LogToFile("debug.log", "debug")
+	if err != nil {
+		fmt.Println("fatal:", err)
+		os.Exit(1)
+	}
+	defer f.Close()
 	db := db.GetDB()
 	defer db.Close()
 	client := api.NewClient(HUB_URL, API_KEY)
+	// update channel mappings
+	go func() {
+		lastloaded, err := db.Get([]byte("channelsloaded"))
+		// convert lastloaded int64
+		update := false
+		lastSec, err := strconv.ParseInt(string(lastloaded), 10, 64)
+		if err != nil {
+			update = true
+		}
+		if update || time.Since(time.Unix(int64(lastSec), 0)) > time.Hour {
+      log.Println("fetching channels")
+			err := client.FetchAllChannels()
+			if err != nil {
+				log.Fatal("error fetching channels: ", err)
+			}
+		}
+    log.Println("channels loaded")
+	}()
+
 	app := ui.NewApp()
 
 	feed := ui.NewFeedView(client)
@@ -28,13 +55,6 @@ func main() {
 
 	castDetails := ui.NewCastView(nil)
 	app.Register("cast", castDetails)
-
-	f, err := tea.LogToFile("debug.log", "debug")
-	if err != nil {
-		fmt.Println("fatal:", err)
-		os.Exit(1)
-	}
-	defer f.Close()
 
 	log.Println("starting app")
 	// start the app

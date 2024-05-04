@@ -23,13 +23,13 @@ type FeedView struct {
 	list    list.Model
 	table   table.Model
 	cursor  int
-	items   map[string]*CastFeedItem
+	items   []*CastFeedItem
 }
 
 func newTable() table.Model {
 	columns := []table.Column{
 		{Title: "hash", Width: 20},
-		{Title: "pfp", Width: 20},
+		{Title: "channel", Width: 20},
 		{Title: "user", Width: 20},
 		{Title: "cast", Width: 200},
 	}
@@ -89,14 +89,14 @@ func NewFeedView(client *api.Client) *FeedView {
 		client:  client,
 		list:    newList(),
 		table:   newTable(),
-		items:   map[string]*CastFeedItem{},
+		items:   []*CastFeedItem{},
 		compact: true,
 	}
 }
 
 func (m *FeedView) Init() tea.Cmd {
 	return func() tea.Msg {
-		feed, err := m.client.GetFeed(api.FeedRequest{FID: 4964})
+		feed, err := m.client.GetFeed(api.FeedRequest{FID: 4964, FeedType: "following", Limit: 20})
 		if err != nil {
 			log.Println("feedview error getting feed", err)
 			return err
@@ -112,7 +112,7 @@ func (m *FeedView) setItems(feed *api.FeedResponse) tea.Cmd {
 	cmds := []tea.Cmd{}
 	for _, cast := range feed.Casts {
 		ci, cmd := NewCastFeedItem(cast, m.compact)
-		m.items[cast.Hash] = ci
+		m.items = append(m.items, ci)
 		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
@@ -132,6 +132,18 @@ func (m *FeedView) setItems(feed *api.FeedResponse) tea.Cmd {
 	return tea.Batch(cmd, tea.Batch(cmds...))
 }
 
+func (m *FeedView) populateItems() tea.Cmd {
+	if !m.compact {
+		return m.list.SetItems([]list.Item{})
+	}
+	rows := []table.Row{}
+	for _, i := range m.items {
+		rows = append(rows, i.AsRow())
+	}
+	m.table.SetRows(rows)
+	return nil
+}
+
 func selectCast(cast *api.Cast) tea.Cmd {
 	return func() tea.Msg {
 		return SelectCastMsg{cast: cast}
@@ -139,14 +151,15 @@ func selectCast(cast *api.Cast) tea.Cmd {
 }
 
 func (m *FeedView) getCurrentItem() *CastFeedItem {
-	if m.compact {
-		row := m.table.SelectedRow()
-		if len(row) == 0 {
-			return nil
-		}
-		return m.items[row[0]]
+	if !m.compact {
+		return m.list.SelectedItem().(*CastFeedItem)
 	}
-	return m.list.SelectedItem().(*CastFeedItem)
+
+	row := m.table.Cursor()
+	if row >= len(m.items) {
+		return nil
+	}
+	return m.items[row]
 }
 
 func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -172,6 +185,21 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.table.SetHeight(msg.Height - v)
 		return m, nil
 	}
+	newItems := []*CastFeedItem{}
+	for _, c := range m.items {
+		ni, cmd := c.Update(msg)
+		ci, ok := ni.(*CastFeedItem)
+		if !ok {
+			log.Println("failed to cast to CastFeedItem")
+		}
+		newItems = append(newItems, ci)
+
+		cmds = append(cmds, cmd)
+	}
+	m.items = newItems
+
+	// update list/table with updated items
+	m.populateItems()
 
 	if m.compact {
 		t, cmd := m.table.Update(msg)
@@ -181,12 +209,6 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		l, cmd := m.list.Update(msg)
 		cmds = append(cmds, cmd)
 		m.list = l
-
-	}
-
-	for _, i := range m.items {
-		_, cmd := i.Update(msg)
-		cmds = append(cmds, cmd)
 	}
 
 	return m, tea.Batch(cmds...)

@@ -68,8 +68,33 @@ func CastContent(cast *api.Cast, maxHeight int, imgs ...ImageModel) string {
 	return contentStyle.MaxHeight(maxHeight).Render(m)
 }
 
+func getCastChannelCmd(cast *api.Cast) tea.Cmd {
+	return func() tea.Msg {
+		if cast.ParentURL == "" {
+			return nil
+		}
+		ch, err := api.GetClient().GetChannelByParentURL(cast.ParentURL)
+		if err != nil {
+			return channelInfoErrMsg{err, cast.Hash, cast.ParentURL}
+		}
+		return channelInfoMsg{ch, cast.Hash, cast.ParentURL}
+	}
+}
+
+type channelInfoMsg struct {
+	channel   *api.Channel
+	cast      string
+	parentURL string
+}
+type channelInfoErrMsg struct {
+	err       error
+	cast      string
+	parentURL string
+}
+
 type CastFeedItem struct {
 	cast    *api.Cast
+	channel string
 	pfp     *ImageModel
 	compact bool
 }
@@ -85,7 +110,9 @@ func NewCastFeedItem(cast *api.Cast, compact bool) (*CastFeedItem, tea.Cmd) {
 
 	cmds := []tea.Cmd{
 		c.pfp.SetURL(cast.Author.PfpURL, false),
+		getCastChannelCmd(cast),
 	}
+
 	if c.compact {
 		cmds = append(cmds, c.pfp.SetSize(2, 1))
 	} else {
@@ -97,7 +124,24 @@ func NewCastFeedItem(cast *api.Cast, compact bool) (*CastFeedItem, tea.Cmd) {
 func (m *CastFeedItem) Init() tea.Cmd { return nil }
 
 func (m *CastFeedItem) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	m = &CastFeedItem{
+		cast:    m.cast,
+		channel: m.channel,
+		pfp:     m.pfp,
+		compact: m.compact,
+	}
 	cmds := []tea.Cmd{}
+	switch msg := msg.(type) {
+	case channelInfoErrMsg:
+		if msg.cast != m.cast.Hash {
+			return m, nil
+		}
+	case channelInfoMsg:
+		if msg.cast != m.cast.Hash {
+			return m, nil
+		}
+		m.channel = msg.channel.Name
+	}
 
 	pfp, cmd := m.pfp.Update(msg)
 	m.pfp = pfp
@@ -110,7 +154,7 @@ func (m *CastFeedItem) View() string { return "" }
 func (m *CastFeedItem) AsRow() []string {
 	return []string{
 		m.cast.Hash,
-		m.pfp.View(),
+		m.channel,
 		m.cast.Author.DisplayName,
 		m.cast.Text,
 	}
