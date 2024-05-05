@@ -81,7 +81,7 @@ func StartSigninServer(f func(fid uint64, signerUUid string)) {
 	log.Println("listening on :8000")
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 	}()
 

@@ -19,15 +19,14 @@ var (
 )
 
 type FeedView struct {
-	compact  bool
-	client   *api.Client
-	list     list.Model
-	table    table.Model
-	cursor   int
-	items    []*CastFeedItem
-	progress *progress.Model
-	loading  bool
-	req      *api.FeedRequest
+	compact bool
+	client  *api.Client
+	list    list.Model
+	table   table.Model
+	cursor  int
+	items   []*CastFeedItem
+	loading *Loading
+	req     *api.FeedRequest
 }
 
 func newTable() table.Model {
@@ -95,13 +94,13 @@ func NewFeedView(client *api.Client, req *api.FeedRequest) *FeedView {
 	p := progress.New()
 	p.ShowPercentage = false
 	return &FeedView{
-		client:   client,
-		list:     newList(),
-		table:    newTable(),
-		items:    []*CastFeedItem{},
-		progress: &p,
-		compact:  true,
-		req:      req,
+		client:  client,
+		list:    newList(),
+		table:   newTable(),
+		items:   []*CastFeedItem{},
+		loading: NewLoading(),
+		compact: true,
+		req:     req,
 	}
 }
 
@@ -109,11 +108,15 @@ func (m *FeedView) Init() tea.Cmd {
 	if len(m.items) > 0 {
 		return nil
 	}
-	m.loading = true
-	if m.req != nil {
-		return getFeedCmd(m.req)
+	m.loading.SetActive(true)
+	cmds := []tea.Cmd{
+		m.loading.Init(),
 	}
-	return nil
+
+	if m.req != nil {
+		cmds = append(cmds, getFeedCmd(m.req))
+	}
+	return tea.Batch(cmds...)
 }
 
 func (m *FeedView) Clear() {
@@ -163,7 +166,7 @@ func (m *FeedView) setItems(feed *api.FeedResponse) tea.Cmd {
 }
 
 func (m *FeedView) populateItems() tea.Cmd {
-	m.loading = false
+	m.loading.SetActive(false)
 	if !m.compact {
 		return m.list.SetItems([]list.Item{})
 	}
@@ -219,9 +222,12 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return SelectProfileMsg{fid: userFid}
 			}
 		}
+	case loadTickMsg:
+		_, cmd := m.loading.Update(msg)
+		return m, cmd
 
 	case *api.FeedResponse:
-		m.loading = false
+		m.loading.SetActive(false)
 		return m, m.setItems(msg)
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
@@ -261,9 +267,8 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *FeedView) View() string {
-	if m.loading {
-		m.progress.ViewAs(0.5)
-		return m.progress.View()
+	if m.loading.IsActive() {
+		return m.loading.View()
 	}
 	if m.compact {
 		return m.table.View()
