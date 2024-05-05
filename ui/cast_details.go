@@ -34,16 +34,24 @@ func (m *CastView) Init() tea.Cmd {
 		return nil
 	}
 	cmds := []tea.Cmd{
-		m.pfp.SetURL(m.cast.Author.PfpURL, false), m.pfp.SetSize(4, 4),
+		m.pfp.SetURL(m.cast.Author.PfpURL, false),
+		m.pfp.SetSize(4, 4),
 	}
 	if len(m.cast.Embeds) > 0 {
-		cmds = append(cmds, m.img.SetURL(m.cast.Embeds[0].URL, true), m.img.SetSize(10, 10))
+		cmds = append(cmds, m.img.SetURL(m.cast.Embeds[0].URL, true))
 	}
 	return tea.Batch(cmds...)
 }
 
 func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		cmds := []tea.Cmd{}
+		if m.img != nil {
+			cmds = append(cmds, m.img.SetSize(msg.Width/2, msg.Height/2))
+		}
+		return m, tea.Batch(cmds...)
+
 	case tea.KeyMsg:
 		if msg.String() == "o" {
 			return m, OpenURL(fmt.Sprintf("https://warpcast.com/%s/%s", m.cast.Author.Username, m.cast.Hash))

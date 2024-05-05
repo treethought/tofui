@@ -50,7 +50,6 @@ func NewProfile() *Profile {
 	}
 }
 
-
 func getUserCmd(fid uint64) tea.Cmd {
 	return func() tea.Msg {
 		log.Println("get user by fid cmd", fid)
