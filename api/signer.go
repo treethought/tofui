@@ -3,15 +3,51 @@ package api
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
+
+	"github.com/treethought/castr/db"
 )
 
 var (
 	//go:embed siwn.html
 	sinwhtml []byte
+	signer   *Signer
+	once     sync.Once
 )
+
+type Signer struct {
+	FID  uint64
+	UUID string
+}
+
+func SetSigner(s *Signer) {
+	once.Do(func() {
+		signer = s
+		d, _ := json.Marshal(s)
+		if err := db.GetDB().Set([]byte("signer"), d); err != nil {
+			log.Fatal("failed to save signer: ", err)
+		}
+	})
+}
+func GetSigner() *Signer {
+	if signer == nil {
+		d, err := db.GetDB().Get([]byte("signer"))
+		if err != nil {
+			log.Println("no signer found in db")
+			return nil
+		}
+		signer = &Signer{}
+		if err = json.Unmarshal(d, signer); err != nil {
+			log.Println("failed to unmarshal signer: ", err)
+			return nil
+		}
+	}
+	return signer
+}
 
 func StartSigninServer(f func(fid uint64, signerUUid string)) {
 	ctx, cancel := context.WithCancel(context.Background())
