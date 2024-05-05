@@ -103,6 +103,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if cmd != nil {
 			return a, cmd
 		}
+	case *api.FeedResponse:
+		// allow msg to pass through to profile's embedded feed
+		if a.focused == "profile" {
+			return a.GetFocused().Update(msg)
+		}
+		feed := a.GetModel("feed").(*FeedView)
+		feed.Clear()
+		focusCmd := a.SetFocus("feed")
+		return a, tea.Batch(feed.setItems(msg), focusCmd)
 	case SelectProfileMsg:
 		focusCmd := a.SetFocus("profile")
 		cmd := a.GetModel("profile").(*Profile).SetFID(msg.fid)

@@ -46,7 +46,7 @@ type Profile struct {
 func NewProfile() *Profile {
 	return &Profile{
 		pfp:  NewImage(false, true, special),
-		feed: NewFeedView(api.GetClient()),
+		feed: NewFeedView(api.GetClient(), nil),
 	}
 }
 
@@ -59,7 +59,7 @@ func getUserCmd(fid uint64) tea.Cmd {
 }
 
 func (m *Profile) SetFID(fid uint64) tea.Cmd {
-	return tea.Batch(getUserCmd(fid), getFeedCmd(api.FeedRequest{FeedType: "filter", FilterType: "fids", Limit: 100, FIDs: []uint64{fid}}))
+	return tea.Batch(getUserCmd(fid), getFeedCmd(&api.FeedRequest{FeedType: "filter", FilterType: "fids", Limit: 100, FIDs: []uint64{fid}}))
 }
 
 func (m *Profile) Init() tea.Cmd {

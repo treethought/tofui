@@ -59,7 +59,7 @@ func main() {
 
 	app := ui.NewApp()
 
-	feed := ui.NewFeedView(client)
+	feed := ui.NewFeedView(client, ui.DefaultFeedParams())
 	app.Register("feed", feed)
 	app.SetFocus("feed")
 
