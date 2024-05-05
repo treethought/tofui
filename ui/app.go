@@ -4,6 +4,7 @@ import (
 	"log"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/treethought/castr/api"
 )
@@ -17,17 +18,22 @@ type SelectCastMsg struct {
 }
 
 type App struct {
-	models       map[string]tea.Model
-	focusedModel tea.Model
-	focused      string
-	height       int
-	width        int
+	models        map[string]tea.Model
+	focusedModel  tea.Model
+	focused       string
+	height        int
+	width         int
+	sidebar       *Sidebar
+	hideSidebar   bool
+	sidebarActive bool
 }
 
 func NewApp() *App {
-	return &App{
+	a := &App{
 		models: make(map[string]tea.Model),
 	}
+	a.sidebar = NewSidebar(a)
+	return a
 }
 
 func (a *App) Height() int {
@@ -69,11 +75,13 @@ func (a *App) GetFocused() tea.Model {
 
 func (a *App) Init() tea.Cmd {
 	log.Println("a.Init()")
+	cmds := []tea.Cmd{}
+	cmds = append(cmds, a.sidebar.Init())
 	focus := a.GetFocused()
 	if focus != nil {
-		return focus.Init()
+		cmds = append(cmds, focus.Init())
 	}
-	return nil
+	return tea.Batch(cmds...)
 }
 
 func (a *App) propagateEvent(msg tea.Msg) tea.Cmd {
@@ -101,25 +109,43 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, tea.Batch(cmd, focusCmd)
 
 	case tea.WindowSizeMsg:
+		SetHeight(msg.Height)
+		SetWidth(msg.Width)
+		// substract the sidebar width from the window width
+		wx, wy := msg.Width, msg.Height
+
+		sw := int(float64(wx) * 0.2)
+		a.sidebar.list.SetSize(sw, wy)
+
+		childMsg := tea.WindowSizeMsg{
+			Width:  wx - sw,
+			Height: wy,
+		}
+
 		for n, m := range a.models {
-			um, cmd := m.Update(msg)
+			um, cmd := m.Update(childMsg)
 			a.models[n] = um
 			cmds = append(cmds, cmd)
-			SetHeight(msg.Height)
-			SetWidth(msg.Width)
 		}
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return a, tea.Quit
+		case "tab":
+			a.sidebarActive = !a.sidebarActive
 		case "esc":
 			cmd := a.propagateEvent(msg)
 			if cmd != nil {
 				return a, cmd
 			}
-      return a, a.SetFocus("feed")
+			return a, a.SetFocus("feed")
 		}
 	}
+	if a.sidebarActive {
+    _, cmd := a.sidebar.Update(msg)
+    return a, cmd
+	}
+
 	current := a.GetFocused()
 	if current == nil {
 		log.Println("no focused model")
@@ -134,10 +160,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (a *App) View() string {
 	focus := a.GetFocused()
-	if focus != nil {
+	if focus == nil {
+		return "no focused model"
+	}
+	if a.hideSidebar {
 		return focus.View()
 	}
-	return ""
+	return lipgloss.JoinHorizontal(lipgloss.Top, a.sidebar.View(), focus.View())
 }
 
 func UpdateChildren(msg tea.Msg, models ...tea.Model) tea.Cmd {
