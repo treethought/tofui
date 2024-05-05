@@ -94,11 +94,18 @@ func NewFeedView(client *api.Client) *FeedView {
 }
 
 func (m *FeedView) Init() tea.Cmd {
-  if len(m.items) > 0 {
-    return nil
-  }
+	if len(m.items) > 0 {
+		return nil
+	}
+	return getFeedCmd(api.FeedRequest{FeedType: "following", Limit: 100})
+}
+
+func getFeedCmd(req api.FeedRequest) tea.Cmd {
 	return func() tea.Msg {
-		feed, err := m.client.GetFeed(api.FeedRequest{FeedType: "following", Limit: 20})
+		if req.Limit == 0 {
+			req.Limit = 100
+		}
+		feed, err := api.GetClient().GetFeed(req)
 		if err != nil {
 			log.Println("feedview error getting feed", err)
 			return err
@@ -163,6 +170,11 @@ func (m *FeedView) getCurrentItem() *CastFeedItem {
 	}
 	return m.items[row]
 }
+func (m *FeedView) SetSize(w, h int) {
+	m.list.SetSize(w, h)
+	m.table.SetWidth(w)
+	m.table.SetHeight(h)
+}
 
 func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
@@ -178,6 +190,14 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cast := current.cast
 			return m, OpenURL(fmt.Sprintf("https://warpcast.com/%s/%s", cast.Author.Username, cast.Hash))
 		}
+		if msg.String() == "p" {
+			current := m.getCurrentItem()
+			userFid := current.cast.Author.FID
+			return m, func() tea.Msg {
+				return SelectProfileMsg{fid: userFid}
+			}
+		}
+
 	case *api.FeedResponse:
 		return m, m.setItems(msg)
 	case tea.WindowSizeMsg:

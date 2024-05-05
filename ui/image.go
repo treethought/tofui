@@ -149,7 +149,7 @@ func getImageCmd(width int, url string, embed bool) tea.Cmd {
 }
 
 func getImage(width int, url string, embed bool) ([]byte, error) {
-	if strings.HasSuffix(url, ".gif") {
+	if strings.HasSuffix(url, ".gif") || strings.HasSuffix(url, ".svg") {
 		return nil, fmt.Errorf("gif not supported")
 	}
 
@@ -313,18 +313,12 @@ func (m *ImageModel) SetBorderless(borderless bool) {
 // Update handles updating the UI of a code bubble.
 func (m *ImageModel) Update(msg tea.Msg) (*ImageModel, tea.Cmd) {
 	var (
-		cmd  tea.Cmd
 		cmds []tea.Cmd
 	)
 
 	switch msg := msg.(type) {
-	// case imageDownloadMsg:
-	// 	if msg.url == m.URL {
-	// 		cmds = append(cmds, m.SetFileName(msg.filename))
-	// 	}
-
 	case convertImageToStringMsg:
-		if msg.url == m.URL {
+		if msg.url == m.URL && msg.str != "" {
 			m.ImageString = lipgloss.NewStyle().
 				Width(m.Viewport.Width).
 				Height(m.Viewport.Height).
@@ -333,7 +327,6 @@ func (m *ImageModel) Update(msg tea.Msg) (*ImageModel, tea.Cmd) {
 		}
 	case downloadError:
 		if msg.url == m.URL {
-			log.Println("download error: ", msg.url, msg.err.Error())
 			m.ImageString = lipgloss.NewStyle().
 				Width(m.Viewport.Width).
 				Height(m.Viewport.Height).
@@ -347,11 +340,6 @@ func (m *ImageModel) Update(msg tea.Msg) (*ImageModel, tea.Cmd) {
 				Height(m.Viewport.Height).
 				Render("Error: " + msg.err.Error())
 		}
-	}
-
-	if m.Active {
-		m.Viewport, cmd = m.Viewport.Update(msg)
-		cmds = append(cmds, cmd)
 	}
 
 	return m, tea.Batch(cmds...)

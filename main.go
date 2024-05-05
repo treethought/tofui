@@ -66,6 +66,9 @@ func main() {
 	castDetails := ui.NewCastView(nil)
 	app.Register("cast", castDetails)
 
+	profile := ui.NewProfile()
+	app.Register("profile", profile)
+
 	log.Println("starting app")
 	// start the app
 	p := tea.NewProgram(app, tea.WithAltScreen())

@@ -45,20 +45,21 @@ var (
 	)
 )
 
-func CastHeader(cast *api.Cast, img *ImageModel) string {
+func UsernameHeader(user *api.User, img *ImageModel) string {
 	return headerStyle.Render(lipgloss.JoinHorizontal(lipgloss.Center,
 		img.View(),
 		lipgloss.JoinHorizontal(lipgloss.Top,
 			displayNameStyle.Render(
-				cast.Author.DisplayName,
+				user.DisplayName,
 			),
 			usernameStyle.Render(
-				fmt.Sprintf("@%s", cast.Author.Username),
+				fmt.Sprintf("@%s", user.Username),
 			),
 		),
 	),
 	)
 }
+
 
 func CastContent(cast *api.Cast, maxHeight int, imgs ...ImageModel) string {
 	m, err := md.Render(cast.Text)
@@ -153,14 +154,14 @@ func (m *CastFeedItem) View() string { return "" }
 
 func (m *CastFeedItem) AsRow() []string {
 	return []string{
-		m.channel,
+		fmt.Sprintf("/%s", m.channel),
 		m.cast.Author.DisplayName,
 		m.cast.Text,
 	}
 }
 
 func (i *CastFeedItem) Title() string {
-	return CastHeader(i.cast, i.pfp)
+	return UsernameHeader(&i.cast.Author, i.pfp)
 }
 
 func (i *CastFeedItem) Description() string {

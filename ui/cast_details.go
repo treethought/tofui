@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -41,6 +43,12 @@ func (m *CastView) Init() tea.Cmd {
 }
 
 func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		if msg.String() == "o" {
+			return m, OpenURL(fmt.Sprintf("https://warpcast.com/%s/%s", m.cast.Author.Username, m.cast.Hash))
+		}
+	}
 	cmds := []tea.Cmd{}
 	img, cmd := m.img.Update(msg)
 	m.img = img
@@ -54,7 +62,7 @@ func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *CastView) View() string {
 	return lipgloss.JoinVertical(lipgloss.Top,
-		CastHeader(m.cast, m.pfp),
+		UsernameHeader(&m.cast.Author, m.pfp),
 		CastContent(m.cast, 10),
 		m.img.View(),
 	)
