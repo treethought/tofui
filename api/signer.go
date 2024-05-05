@@ -20,8 +20,10 @@ var (
 )
 
 type Signer struct {
-	FID  uint64
-	UUID string
+	FID         uint64
+	UUID        string
+	Username    string
+	DisplayName string
 }
 
 func SetSigner(s *Signer) {

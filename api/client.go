@@ -30,3 +30,4 @@ func NewClient(url, apiKey string) *Client {
 func (c *Client) buildEndpoint(path string) string {
 	return c.baseURL + path
 }
+

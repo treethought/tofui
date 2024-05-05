@@ -12,15 +12,17 @@ import (
 )
 
 type Sidebar struct {
-	app    *App
-	active bool
-	list   list.Model
+	app      *App
+	active   bool
+	nav      *list.Model
+	channels *list.Model
 }
 
 type sidebarItem struct {
 	name  string
 	value string
 	icon  string
+	itype string
 }
 
 func (m *sidebarItem) FilterValue() string {
@@ -40,6 +42,7 @@ func (i *sidebarItem) Description() string {
 func NewSidebar(app *App) *Sidebar {
 	d := list.NewDefaultDelegate()
 	d.SetHeight(2)
+	d.ShowDescription = false
 	// d.Styles.NormalTitle.Border(lipgloss.NormalBorder(), true, true, true, true).Margin(0).Padding(0).AlignHorizontal(lipgloss.Left)
 	// d.Styles.SelectedTitle.Border(lipgloss.NormalBorder(), true, true, true, true).Margin(0).Padding(0).AlignHorizontal(lipgloss.Left)
 	// d.Styles.NormalTitle.MaxHeight(2)
@@ -61,24 +64,46 @@ func NewSidebar(app *App) *Sidebar {
 	l.SetShowHelp(false)
 	l.SetShowStatusBar(false)
 
-	return &Sidebar{app: app, list: l}
+	return &Sidebar{app: app, nav: &l}
+}
+
+func getUserChannelsCmd() tea.Cmd {
+	return func() tea.Msg {
+		fid := api.GetSigner().FID
+		channels, err := api.GetClient().GetUserChannels(fid, 10, true)
+		if err != nil {
+			log.Println("error getting user channels: ", err)
+			return nil
+		}
+		return channels
+	}
+}
+func (m *Sidebar) navHeader() []list.Item {
+	items := []list.Item{}
+	items = append(items, &sidebarItem{name: "profile", value: fmt.Sprintf("%d", api.GetSigner().FID)})
+	items = append(items, &sidebarItem{name: "-----", value: "----", icon: "🏠"})
+	items = append(items, &sidebarItem{name: "Channels", value: "Channels", icon: "🏠"})
+	return items
 }
 
 func (m *Sidebar) Init() tea.Cmd {
 	log.Println("sidebar init")
-	items := []list.Item{}
-	items = append(items, &sidebarItem{name: "profile", value: fmt.Sprintf("%d", api.GetSigner().FID)})
-	items = append(items, &sidebarItem{name: "Home", value: "Home", icon: "🏠"})
-
 	log.Println("sidebar set items")
-	return m.list.SetItems(items)
+	return tea.Batch(m.nav.SetItems(m.navHeader()), getUserChannelsCmd())
 }
 
 func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case []*api.Channel:
+		items := m.navHeader()
+		for _, c := range msg {
+			items = append(items, &sidebarItem{name: c.Name, value: c.ParentURL, itype: "channel"})
+		}
+		return m, m.nav.SetItems(items)
+
 	case tea.KeyMsg:
 		if msg.String() == "enter" {
-			currentItem := m.list.SelectedItem().(*sidebarItem)
+			currentItem := m.nav.SelectedItem().(*sidebarItem)
 			if currentItem.name == "profile" {
 				log.Println("profile selected")
 				fid := api.GetSigner().FID
@@ -89,15 +114,18 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return SelectProfileMsg{fid}
 				}
 			}
+			if currentItem.itype == "channel" {
+				return m, getFeedCmd(&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: currentItem.value, Limit: 100})
+			}
 		}
 	}
 
 	//update list size if window size changes
-	l, cmd := m.list.Update(msg)
-	m.list = l
+	l, cmd := m.nav.Update(msg)
+	m.nav = &l
 	return m, cmd
 }
 func (m *Sidebar) View() string {
-	return lipgloss.NewStyle().BorderRight(true).BorderStyle(lipgloss.DoubleBorder()).Render(m.list.View())
+	return lipgloss.NewStyle().BorderRight(true).BorderStyle(lipgloss.DoubleBorder()).Render(m.nav.View())
 	// return m.list.View()
 }

@@ -3,7 +3,9 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -12,7 +14,7 @@ import (
 )
 
 type ChannelResponse struct {
-	Channels []Channel
+	Channels []*Channel
 	Next     struct {
 		Cursor *string `json:"cursor"`
 	} `json:"next"`
@@ -30,6 +32,39 @@ type Channel struct {
 	ParentURL     string `json:"parent_url"`
 	Lead          User   `json:"lead"`
 	Hosts         []User `json:"hosts"`
+}
+
+func (c *Client) GetUserChannels(fid, limit uint64, active bool) ([]*Channel, error) {
+	var url string
+	if active {
+		url = c.buildEndpoint(fmt.Sprintf("/channel/user?fid=%d&limit=%d", fid, limit))
+	} else {
+		url = c.buildEndpoint(fmt.Sprintf("/user/channels?fid=%d&limit=%d", fid, limit))
+	}
+	req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, url, nil)
+	if err != nil {
+		return nil, errors.New("failed to create request")
+	}
+	req.Header.Add("accept", "application/json")
+	req.Header.Add("api_key", c.apiKey)
+	log.Println("url: ", url)
+	res, err := c.c.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		d, _ := io.ReadAll(res.Body)
+		log.Println("res: ", string(d))
+		return nil, fmt.Errorf("failed to get followed channels: %s", res.Status)
+	}
+
+	resp := &ChannelResponse{}
+	if err = json.NewDecoder(res.Body).Decode(resp); err != nil {
+		return nil, err
+	}
+
+	return resp.Channels, nil
 }
 
 func (c *Client) GetChannelByParentURL(pu string) (*Channel, error) {
