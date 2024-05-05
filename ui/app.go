@@ -103,6 +103,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if cmd != nil {
 			return a, cmd
 		}
+	case SelectProfileMsg:
+		focusCmd := a.SetFocus("profile")
+		cmd := a.GetModel("profile").(*Profile).SetFID(msg.fid)
+		return a, tea.Batch(focusCmd, cmd)
 	case SelectCastMsg:
 		focusCmd := a.SetFocus("cast")
 		cmd := a.GetModel("cast").(*CastView).SetCast(msg.cast)
@@ -142,8 +146,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	if a.sidebarActive {
-    _, cmd := a.sidebar.Update(msg)
-    return a, cmd
+		_, cmd := a.sidebar.Update(msg)
+		return a, cmd
 	}
 
 	current := a.GetFocused()

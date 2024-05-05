@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -72,13 +73,14 @@ type FeedRequest struct {
 	FID        uint64
 	FilterType string
 	ParentURL  string
-	FIDs       []int32
+	FIDs       []uint64
 	Cursor     string
-	Limit      int32
+	Limit      uint64
+	ViewerFID  uint64
 }
 
 type FeedResponse struct {
-	Casts []*Cast
+	Casts     []*Cast
 }
 
 type ChannelResponse struct {
@@ -160,6 +162,51 @@ func (c *Client) FetchAllChannels() error {
 	return nil
 }
 
+func (c *Client) GetUserByFID(fid uint64) (*User, error) {
+	log.Println("get user by fid: ", fid)
+	key := fmt.Sprintf("user:%d", fid)
+	cached, err := db.GetDB().Get([]byte(key))
+	if err == nil {
+		u := &User{}
+		if err := json.Unmarshal(cached, u); err != nil {
+			log.Fatal("failed to unmarshal cached user: ", err)
+		}
+		log.Println("got cached user: ", u.Username)
+		return u, nil
+	}
+	url := c.buildEndpoint(fmt.Sprintf("/user/bulk?fids=%d&viewer_fid=%d", fid, GetSigner().FID))
+	req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, url, nil)
+	if err != nil {
+		log.Println("failed to create request: ", err)
+		return nil, err
+	}
+	req.Header.Add("accept", "application/json")
+	req.Header.Add("api_key", c.apiKey)
+	res, err := c.c.Do(req)
+	if err != nil {
+		log.Println("failed to get user: ", err)
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		log.Println("failed to get user: ", res.Status)
+		return nil, fmt.Errorf("failed to get user: %s", res.Status)
+	}
+	resp := &BulkUsersResponse{}
+	if err = json.NewDecoder(res.Body).Decode(&resp); err != nil {
+		return nil, err
+	}
+	if len(resp.Users) == 0 {
+		return nil, fmt.Errorf("user not found")
+	}
+	user := resp.Users[0]
+	d, _ := json.Marshal(user)
+	if err := db.GetDB().Set([]byte(key), []byte(d)); err != nil {
+		log.Println("failed to cache user: ", err)
+	}
+	return user, nil
+}
+
 func (c *Client) GetChannelByParentURL(pu string) (*Channel, error) {
 	key := fmt.Sprintf("channel:%s", pu)
 	cached, err := db.GetDB().Get([]byte(key))
@@ -204,13 +251,47 @@ func (c *Client) GetChannelByParentURL(pu string) (*Channel, error) {
 }
 
 func (c *Client) GetFeed(r FeedRequest) (*FeedResponse, error) {
+	viewer := GetSigner().FID
 	if r.FID == 0 {
-		r.FID = GetSigner().FID
+		r.FID = viewer
 	}
-	url := c.buildEndpoint(
-		fmt.Sprintf("/feed?feed_type=%s&fid=%d&filter_type=%s&parent_url=%s&fids=%v&cursor=%s&limit=%d",
-			r.FeedType, r.FID, r.FilterType, r.ParentURL, r.FIDs, r.Cursor, r.Limit))
-	req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, url, nil)
+	u := c.buildEndpoint("/feed")
+
+	q := url.Values{}
+
+	if r.FeedType != "" {
+		q.Set("feed_type", r.FeedType)
+	}
+	if r.FilterType != "" {
+		q.Set("filter_type", r.FilterType)
+	}
+	if r.ParentURL != "" {
+		q.Set("parent_url", r.ParentURL)
+	}
+	if r.FIDs != nil {
+		for _, fid := range r.FIDs {
+			q.Add("fids", fmt.Sprintf("%d", fid))
+		}
+	}
+	if r.FeedType == "following" {
+		if r.FID == 0 {
+			q.Set("fid", fmt.Sprintf("%d", viewer))
+		} else {
+			q.Set("fid", fmt.Sprintf("%d", r.FID))
+		}
+	}
+
+	if r.Cursor != "" {
+		q.Set("cursor", r.Cursor)
+	}
+	if r.Limit != 0 {
+		q.Set("limit", fmt.Sprintf("%d", r.Limit))
+	}
+	q.Set("viewer_fid", fmt.Sprintf("%d", viewer))
+
+	u += "?" + q.Encode()
+
+	req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, u, nil)
 	if err != nil {
 		log.Println("failed to create request: ", err)
 		return nil, err
@@ -222,7 +303,10 @@ func (c *Client) GetFeed(r FeedRequest) (*FeedResponse, error) {
 		log.Println("failed to get feed: ", err)
 		return nil, err
 	}
-	log.Println("got response: ", res.Status)
+	if res.StatusCode != http.StatusOK {
+		log.Println("failed to get feed: ", res.Status)
+		return nil, fmt.Errorf("failed to get feed: %s", res.Status)
+	}
 
 	defer res.Body.Close()
 	resp := &FeedResponse{}
