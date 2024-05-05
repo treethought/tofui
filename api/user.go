@@ -57,7 +57,16 @@ func (c *Client) GetUserByFID(fid uint64) (*User, error) {
 		log.Println("got cached user: ", u.Username)
 		return u, nil
 	}
-	url := c.buildEndpoint(fmt.Sprintf("/user/bulk?fids=%d&viewer_fid=%d", fid, GetSigner().FID))
+	signer := GetSigner()
+	var viewer uint64
+	if signer != nil {
+		viewer = signer.FID
+	}
+	url := c.buildEndpoint(fmt.Sprintf("/user/bulk?fids=%d", fid))
+	if viewer != 0 {
+		url += fmt.Sprintf("&viewer_fid=%d", viewer)
+	}
+
 	req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, url, nil)
 	if err != nil {
 		log.Println("failed to create request: ", err)

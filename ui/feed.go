@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -18,12 +19,15 @@ var (
 )
 
 type FeedView struct {
-	compact bool
-	client  *api.Client
-	list    list.Model
-	table   table.Model
-	cursor  int
-	items   []*CastFeedItem
+	compact  bool
+	client   *api.Client
+	list     list.Model
+	table    table.Model
+	cursor   int
+	items    []*CastFeedItem
+	progress *progress.Model
+	loading  bool
+	req      *api.FeedRequest
 }
 
 func newTable() table.Model {
@@ -83,13 +87,21 @@ func newList() list.Model {
 
 }
 
-func NewFeedView(client *api.Client) *FeedView {
+func DefaultFeedParams() *api.FeedRequest {
+	return &api.FeedRequest{FeedType: "following", Limit: 100}
+}
+
+func NewFeedView(client *api.Client, req *api.FeedRequest) *FeedView {
+	p := progress.New()
+	p.ShowPercentage = false
 	return &FeedView{
-		client:  client,
-		list:    newList(),
-		table:   newTable(),
-		items:   []*CastFeedItem{},
-		compact: true,
+		client:   client,
+		list:     newList(),
+		table:    newTable(),
+		items:    []*CastFeedItem{},
+		progress: &p,
+		compact:  true,
+		req:      req,
 	}
 }
 
@@ -97,10 +109,19 @@ func (m *FeedView) Init() tea.Cmd {
 	if len(m.items) > 0 {
 		return nil
 	}
-	return getFeedCmd(api.FeedRequest{FeedType: "following", Limit: 100})
+	m.loading = true
+	if m.req != nil {
+		return getFeedCmd(m.req)
+	}
+	return nil
 }
 
-func getFeedCmd(req api.FeedRequest) tea.Cmd {
+func (m *FeedView) Clear() {
+	m.items = []*CastFeedItem{}
+	m.req = nil
+}
+
+func getFeedCmd(req *api.FeedRequest) tea.Cmd {
 	return func() tea.Msg {
 		if req.Limit == 0 {
 			req.Limit = 100
@@ -142,6 +163,7 @@ func (m *FeedView) setItems(feed *api.FeedResponse) tea.Cmd {
 }
 
 func (m *FeedView) populateItems() tea.Cmd {
+	m.loading = false
 	if !m.compact {
 		return m.list.SetItems([]list.Item{})
 	}
@@ -199,6 +221,7 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case *api.FeedResponse:
+		m.loading = false
 		return m, m.setItems(msg)
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
@@ -238,6 +261,10 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *FeedView) View() string {
+	if m.loading {
+		m.progress.ViewAs(0.5)
+		return m.progress.View()
+	}
 	if m.compact {
 		return m.table.View()
 	}

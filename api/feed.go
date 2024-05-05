@@ -24,7 +24,7 @@ type FeedResponse struct {
 	Casts []*Cast
 }
 
-func (c *Client) GetFeed(r FeedRequest) (*FeedResponse, error) {
+func (c *Client) GetFeed(r *FeedRequest) (*FeedResponse, error) {
 	viewer := GetSigner().FID
 	if r.FID == 0 {
 		r.FID = viewer
