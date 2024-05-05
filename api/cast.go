@@ -2,40 +2,6 @@ package api
 
 import "time"
 
-type Profile struct {
-	Bio struct {
-		Text string
-	}
-}
-
-type VerifiedAddresses struct {
-	EthAddresses []string `json:"eth_addresses"`
-	SolAddresses []string `json:"sol_addresses"`
-}
-
-type ViewerContext struct {
-	Following  bool `json:"following"`
-	FollowedBy bool `json:"followed_by"`
-}
-
-type BulkUsersResponse struct {
-	Users []*User `json:"users"`
-}
-
-type User struct {
-	FID               uint64            `json:"fid"`
-	Username          string            `json:"username"`
-	DisplayName       string            `json:"display_name"`
-	PfpURL            string            `json:"pfp_url"`
-	Profile           Profile           `json:"profile"`
-	FollowerCount     int32             `json:"follower_count"`
-	FollowingCount    int32             `json:"following_count"`
-	Verifications     []string          `json:"verifications"`
-	VerifiedAddresses VerifiedAddresses `json:"verified_addresses"`
-	ActiveStatus      string            `json:"active_status"`
-	PowerBadge        bool              `json:"power_badge"`
-	ViewerContext     ViewerContext     `json:"viewer_context"`
-}
 
 type Embed struct {
 	URL string `json:"url"`
