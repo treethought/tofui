@@ -103,10 +103,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if cmd != nil {
 			return a, cmd
 		}
+	case []*api.Channel:
+		_, cmd := a.sidebar.Update(msg)
+		return a, cmd
 	case *api.FeedResponse:
 		// allow msg to pass through to profile's embedded feed
 		if a.focused == "profile" {
-			return a.GetFocused().Update(msg)
+			_, cmd := a.GetFocused().Update(msg)
+			return a, cmd
 		}
 		feed := a.GetModel("feed").(*FeedView)
 		feed.Clear()
