@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
@@ -46,6 +47,9 @@ var (
 )
 
 func UsernameHeader(user *api.User, img *ImageModel) string {
+	if user == nil {
+		return spinner.New().View()
+	}
 	return headerStyle.Render(lipgloss.JoinHorizontal(lipgloss.Center,
 		img.View(),
 		lipgloss.JoinHorizontal(lipgloss.Top,
@@ -60,8 +64,10 @@ func UsernameHeader(user *api.User, img *ImageModel) string {
 	)
 }
 
-
 func CastContent(cast *api.Cast, maxHeight int, imgs ...ImageModel) string {
+  if cast == nil {
+    return spinner.New().View()
+  }
 	m, err := md.Render(cast.Text)
 	if err != nil {
 		m = cast.Text
