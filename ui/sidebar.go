@@ -81,8 +81,8 @@ func getUserChannelsCmd() tea.Cmd {
 func (m *Sidebar) navHeader() []list.Item {
 	items := []list.Item{}
 	items = append(items, &sidebarItem{name: "profile", value: fmt.Sprintf("%d", api.GetSigner().FID)})
-	items = append(items, &sidebarItem{name: "-----", value: "----", icon: "🏠"})
-	items = append(items, &sidebarItem{name: "Channels", value: "Channels", icon: "🏠"})
+	items = append(items, &sidebarItem{name: "feed", value: fmt.Sprintf("%d", api.GetSigner().FID)})
+	items = append(items, &sidebarItem{name: "--channels---", value: "--channels--", icon: "🏠"})
 	return items
 }
 
@@ -90,6 +90,12 @@ func (m *Sidebar) Init() tea.Cmd {
 	log.Println("sidebar init")
 	log.Println("sidebar set items")
 	return tea.Batch(m.nav.SetItems(m.navHeader()), getUserChannelsCmd())
+}
+
+func selectProfileCmd(fid uint64) tea.Cmd {
+	return func() tea.Msg {
+		return SelectProfileMsg{fid}
+	}
 }
 
 func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -110,12 +116,14 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if fid == 0 {
 					return m, nil
 				}
-				return m, func() tea.Msg {
-					return SelectProfileMsg{fid}
-				}
+				return m, tea.Sequence(m.app.SetFocus("profile"), selectProfileCmd(fid))
+			}
+			if currentItem.name == "feed" {
+				log.Println("feed selected")
+				return m, tea.Sequence(m.app.SetFocus("feed"), getFeedCmd(DefaultFeedParams()))
 			}
 			if currentItem.itype == "channel" {
-				return m, getFeedCmd(&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: currentItem.value, Limit: 100})
+				return m, tea.Sequence(m.app.SetFocus("feed"), getFeedCmd(&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: currentItem.value, Limit: 100}))
 			}
 		}
 	}

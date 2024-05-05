@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -11,6 +12,9 @@ import (
 )
 
 func UserBio(user *api.User) string {
+	if user == nil {
+		return spinner.New().View()
+	}
 	stats := lipgloss.JoinHorizontal(lipgloss.Top,
 		lipgloss.NewStyle().Bold(true).Render(fmt.Sprintf("%d", user.FollowingCount)),
 		lipgloss.NewStyle().MarginRight(10).Render(" following"),
@@ -93,9 +97,6 @@ func (m *Profile) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(fcmd, pcmd)
 }
 func (m *Profile) View() string {
-	if m.user == nil {
-		return "no user"
-	}
 
 	// profile := lipgloss.NewStyle().MaxHeight(2).Render(lipgloss.JoinHorizontal(lipgloss.Left,
 	//   UsernameHeader(m.user, m.pfp),

@@ -66,6 +66,9 @@ func (a *App) SetFocus(name string) tea.Cmd {
 	}
 	a.focusedModel = m
 	a.focused = name
+	if a.sidebarActive {
+		a.sidebarActive = false
+	}
 	return m.Init()
 }
 
