@@ -13,11 +13,15 @@ import (
 	"github.com/treethought/castr/db"
 )
 
-type ChannelResponse struct {
+type ChannelsResponse struct {
 	Channels []*Channel
 	Next     struct {
 		Cursor *string `json:"cursor"`
 	} `json:"next"`
+}
+type ChannelResponse struct {
+	Channel       *Channel      `json:"channel"`
+	ViewerContext ViewerContext `json:"viewer_context"`
 }
 
 type Channel struct {
@@ -59,7 +63,7 @@ func (c *Client) GetUserChannels(fid, limit uint64, active bool) ([]*Channel, er
 		return nil, fmt.Errorf("failed to get followed channels: %s", res.Status)
 	}
 
-	resp := &ChannelResponse{}
+	resp := &ChannelsResponse{}
 	if err = json.NewDecoder(res.Body).Decode(resp); err != nil {
 		return nil, err
 	}
@@ -95,23 +99,23 @@ func (c *Client) GetChannelByParentURL(pu string) (*Channel, error) {
 		return nil, fmt.Errorf("failed to get channel: %s", res.Status)
 	}
 
-	resp := &Channel{}
+	resp := &ChannelResponse{}
 	if err = json.NewDecoder(res.Body).Decode(resp); err != nil {
 		return nil, err
 	}
-	if resp.Name == "" {
-		return nil, fmt.Errorf("channel name empty")
+	if resp.Channel.Name == "" {
+		return nil, fmt.Errorf("channel name empty: ")
 	}
 
-	d, _ := json.Marshal(resp)
+	d, _ := json.Marshal(resp.Channel)
 	if err := db.GetDB().Set([]byte(key), []byte(d)); err != nil {
 		log.Println("failed to cache channel: ", err)
 	}
-	return resp, nil
+	return resp.Channel, nil
 }
 
 func (c *Client) FetchAllChannels() error {
-	var resp ChannelResponse
+	var resp ChannelsResponse
 	var res *http.Response
 
 	defer db.GetDB().Set([]byte("channelsloaded"), []byte(fmt.Sprintf("%d", time.Now().Unix())))
