@@ -14,9 +14,9 @@ type FocusMsg struct {
 }
 
 func focusCmd(name string) tea.Cmd {
-  return func() tea.Msg {
-    return FocusMsg{Name: name}
-  }
+	return func() tea.Msg {
+		return FocusMsg{Name: name}
+	}
 }
 
 type SelectCastMsg struct {
@@ -32,6 +32,7 @@ type App struct {
 	sidebar       *Sidebar
 	hideSidebar   bool
 	sidebarActive bool
+	prev          string
 }
 
 func NewApp() *App {
@@ -66,6 +67,7 @@ func (a *App) SetFocus(name string) tea.Cmd {
 	if name == "" || name == a.focused {
 		return nil
 	}
+	a.prev = a.focused
 	m, ok := a.models[name]
 	if !ok {
 		log.Println("model not found: ", name)
@@ -80,6 +82,17 @@ func (a *App) SetFocus(name string) tea.Cmd {
 
 func (a *App) GetFocused() tea.Model {
 	return a.focusedModel
+}
+
+func (a *App) FocusPrev() tea.Cmd {
+	prev := a.GetModel(a.prev)
+	if a.prev == "" || prev == nil {
+		return a.SetFocus("feed")
+	}
+	if m := a.GetModel(a.prev); m != nil {
+		return a.SetFocus(a.prev)
+	}
+	return a.SetFocus("feed")
 }
 
 func (a *App) Init() tea.Cmd {
@@ -140,8 +153,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// substract the sidebar width from the window width
 		wx, wy := msg.Width, msg.Height
 
-		sw := int(float64(wx) * 0.2)
-		a.sidebar.list.SetSize(sw, wy)
+		sw := wx / 4
+		a.sidebar.nav.SetSize(sw, wy)
 
 		childMsg := tea.WindowSizeMsg{
 			Width:  wx - sw,
@@ -160,11 +173,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "tab":
 			a.sidebarActive = !a.sidebarActive
 		case "esc":
-			cmd := a.propagateEvent(msg)
-			if cmd != nil {
-				return a, cmd
-			}
-			return a, a.SetFocus("feed")
+			return a, a.FocusPrev()
 		}
 	}
 	if a.sidebarActive {
