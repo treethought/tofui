@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"time"
@@ -38,36 +37,22 @@ type Channel struct {
 	Hosts         []User `json:"hosts"`
 }
 
-func (c *Client) GetUserChannels(fid, limit uint64, active bool) ([]*Channel, error) {
-	var url string
+func (c *Client) GetUserChannels(fid uint64, active bool, opts ...RequestOption) ([]*Channel, error) {
+	var path string
 	if active {
-		url = c.buildEndpoint(fmt.Sprintf("/channel/user?fid=%d&limit=%d", fid, limit))
+		path = "/channel/user"
 	} else {
-		url = c.buildEndpoint(fmt.Sprintf("/user/channels?fid=%d&limit=%d", fid, limit))
+		path = "/user/channels"
 	}
-	req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, url, nil)
-	if err != nil {
-		return nil, errors.New("failed to create request")
-	}
-	req.Header.Add("accept", "application/json")
-	req.Header.Add("api_key", c.apiKey)
-	log.Println("url: ", url)
-	res, err := c.c.Do(req)
-	if err != nil {
+	opts = append(opts, WithFID(fid))
+
+	var resp ChannelsResponse
+	if err := c.doRequestInto(context.TODO(), path, &resp, opts...); err != nil {
 		return nil, err
 	}
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		d, _ := io.ReadAll(res.Body)
-		log.Println("res: ", string(d))
-		return nil, fmt.Errorf("failed to get followed channels: %s", res.Status)
+	if resp.Channels == nil {
+		return nil, errors.New("no channels found")
 	}
-
-	resp := &ChannelsResponse{}
-	if err = json.NewDecoder(res.Body).Decode(resp); err != nil {
-		return nil, err
-	}
-
 	return resp.Channels, nil
 }
 
@@ -81,30 +66,17 @@ func (c *Client) GetChannelByParentURL(pu string) (*Channel, error) {
 		}
 		return ch, nil
 	}
+	path := "/channel"
 
-	// TODO viewer FID
-	url := c.buildEndpoint(fmt.Sprintf("/channel?id=%s&type=parent_url", pu))
-	req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("accept", "application/json")
-	req.Header.Add("api_key", c.apiKey)
-	res, err := c.c.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to get channel: %s", res.Status)
-	}
+	opts := []RequestOption{WithQuery("id", pu), WithQuery("type", "parent_url")}
 
-	resp := &ChannelResponse{}
-	if err = json.NewDecoder(res.Body).Decode(resp); err != nil {
+	var resp ChannelResponse
+	err = c.doRequestInto(context.TODO(), path, &resp, opts...)
+	if err != nil {
 		return nil, err
 	}
 	if resp.Channel.Name == "" {
-		return nil, fmt.Errorf("channel name empty: ")
+		return nil, errors.New("channel name empty")
 	}
 
 	d, _ := json.Marshal(resp.Channel)
@@ -112,6 +84,7 @@ func (c *Client) GetChannelByParentURL(pu string) (*Channel, error) {
 		log.Println("failed to cache channel: ", err)
 	}
 	return resp.Channel, nil
+
 }
 
 func (c *Client) FetchAllChannels() error {

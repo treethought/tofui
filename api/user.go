@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 
 	"github.com/treethought/castr/db"
 )
@@ -46,7 +45,6 @@ type User struct {
 }
 
 func (c *Client) GetUserByFID(fid uint64) (*User, error) {
-	log.Println("get user by fid: ", fid)
 	key := fmt.Sprintf("user:%d", fid)
 	cached, err := db.GetDB().Get([]byte(key))
 	if err == nil {
@@ -62,30 +60,17 @@ func (c *Client) GetUserByFID(fid uint64) (*User, error) {
 	if signer != nil {
 		viewer = signer.FID
 	}
-	url := c.buildEndpoint(fmt.Sprintf("/user/bulk?fids=%d", fid))
+	path := "/user/bulk"
+
+	opts := []RequestOption{
+		WithQuery("fids", fmt.Sprintf("%d", fid)),
+	}
 	if viewer != 0 {
-		url += fmt.Sprintf("&viewer_fid=%d", viewer)
+		opts = append(opts, WithQuery("viewer_fid", fmt.Sprintf("%d", viewer)))
 	}
 
-	req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, url, nil)
-	if err != nil {
-		log.Println("failed to create request: ", err)
-		return nil, err
-	}
-	req.Header.Add("accept", "application/json")
-	req.Header.Add("api_key", c.apiKey)
-	res, err := c.c.Do(req)
-	if err != nil {
-		log.Println("failed to get user: ", err)
-		return nil, err
-	}
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		log.Println("failed to get user: ", res.Status)
-		return nil, fmt.Errorf("failed to get user: %s", res.Status)
-	}
-	resp := &BulkUsersResponse{}
-	if err = json.NewDecoder(res.Body).Decode(&resp); err != nil {
+	var resp BulkUsersResponse
+	if err := c.doRequestInto(context.TODO(), path, &resp, opts...); err != nil {
 		return nil, err
 	}
 	if len(resp.Users) == 0 {

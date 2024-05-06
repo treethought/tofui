@@ -70,7 +70,7 @@ func NewSidebar(app *App) *Sidebar {
 func getUserChannelsCmd() tea.Cmd {
 	return func() tea.Msg {
 		fid := api.GetSigner().FID
-		channels, err := api.GetClient().GetUserChannels(fid, 10, true)
+		channels, err := api.GetClient().GetUserChannels(fid, true, api.WithLimit(10))
 		if err != nil {
 			log.Println("error getting user channels: ", err)
 			return nil
