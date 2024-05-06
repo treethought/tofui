@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -13,7 +12,9 @@ import (
 
 func UserBio(user *api.User) string {
 	if user == nil {
-		return spinner.New().View()
+		l := NewLoading()
+		l.SetActive(true)
+		return l.View()
 	}
 	stats := lipgloss.JoinHorizontal(lipgloss.Top,
 		lipgloss.NewStyle().Bold(true).Render(fmt.Sprintf("%d", user.FollowingCount)),
@@ -67,7 +68,7 @@ func (m *Profile) SetFID(fid uint64) tea.Cmd {
 }
 
 func (m *Profile) Init() tea.Cmd {
-	return nil
+	return m.feed.Init()
 }
 
 func (m *Profile) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

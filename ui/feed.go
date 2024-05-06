@@ -222,6 +222,15 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return SelectProfileMsg{fid: userFid}
 			}
 		}
+		if msg.String() == "c" {
+			current := m.getCurrentItem()
+			if current.cast.ParentURL == "" {
+				return m, nil
+			}
+			m.Clear()
+			return m, tea.Sequence(focusCmd("feed"), getFeedCmd(&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: current.cast.ParentURL, Limit: 100}))
+		}
+
 	case loadTickMsg:
 		_, cmd := m.loading.Update(msg)
 		return m, cmd

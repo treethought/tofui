@@ -45,6 +45,7 @@ func main() {
 	// 	log.Println("channels loaded")
 	// }()
 
+	signerReady := make(chan struct{})
 	signer := api.GetSigner()
 	if signer == nil {
 		fmt.Println("no signer found, visit http://localhost:8000/signin to sign in")
@@ -56,11 +57,14 @@ func main() {
 			}
 			api.SetSigner(signer)
 			log.Println("signed in!")
+			close(signerReady)
 		})
+	} else {
+		log.Println("signer found, FID: ", signer.FID)
+		close(signerReady)
 	}
 
-	log.Println("signer found, FID: ", signer.FID)
-
+	<-signerReady
 	app := ui.NewApp()
 
 	feed := ui.NewFeedView(client, ui.DefaultFeedParams())

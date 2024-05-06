@@ -65,9 +65,9 @@ func UsernameHeader(user *api.User, img *ImageModel) string {
 }
 
 func CastContent(cast *api.Cast, maxHeight int, imgs ...ImageModel) string {
-  if cast == nil {
-    return spinner.New().View()
-  }
+	if cast == nil {
+		return spinner.New().View()
+	}
 	m, err := md.Render(cast.Text)
 	if err != nil {
 		m = cast.Text
@@ -100,10 +100,11 @@ type channelInfoErrMsg struct {
 }
 
 type CastFeedItem struct {
-	cast    *api.Cast
-	channel string
-	pfp     *ImageModel
-	compact bool
+	cast       *api.Cast
+	channel    string
+	channelURL string
+	pfp        *ImageModel
+	compact    bool
 }
 
 // NewCastFeedItem displays a cast in compact form within a list
@@ -148,6 +149,7 @@ func (m *CastFeedItem) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.channel = msg.channel.Name
+		m.channelURL = msg.parentURL
 	}
 
 	pfp, cmd := m.pfp.Update(msg)
