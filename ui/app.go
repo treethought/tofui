@@ -13,6 +13,12 @@ type FocusMsg struct {
 	Name string
 }
 
+func focusCmd(name string) tea.Cmd {
+  return func() tea.Msg {
+    return FocusMsg{Name: name}
+  }
+}
+
 type SelectCastMsg struct {
 	cast *api.Cast
 }
