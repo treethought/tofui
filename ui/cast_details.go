@@ -71,6 +71,7 @@ func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *CastView) View() string {
 	return lipgloss.JoinVertical(lipgloss.Top,
 		UsernameHeader(&m.cast.Author, m.pfp),
+		CastStats(m.cast),
 		CastContent(m.cast, 10),
 		m.img.View(),
 	)

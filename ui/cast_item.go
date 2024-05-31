@@ -64,6 +64,27 @@ func UsernameHeader(user *api.User, img *ImageModel) string {
 	)
 }
 
+func CastStats(cast *api.Cast) string {
+	if cast == nil {
+		return spinner.New().View()
+	}
+	liked := EmojiEmptyLike
+	if cast.ViewerContext.Liked {
+		liked = EmojiLike
+	}
+	stats := lipgloss.JoinHorizontal(lipgloss.Top,
+		lipgloss.NewStyle().Render(fmt.Sprintf("%d ", cast.Replies.Count)),
+		lipgloss.NewStyle().MarginRight(10).Render(EmojiComment),
+		lipgloss.NewStyle().Render(fmt.Sprintf("%d ", cast.Reactions.LikesCount)),
+		lipgloss.NewStyle().MarginRight(10).Render(liked),
+		lipgloss.NewStyle().Render(fmt.Sprintf("%d ", cast.Reactions.RecastsCount)),
+		lipgloss.NewStyle().MarginRight(10).Render(EmojiRecyle),
+	)
+	style := lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderBottom(true).Padding(0)
+	return style.Render(stats)
+
+}
+
 func CastContent(cast *api.Cast, maxHeight int, imgs ...ImageModel) string {
 	if cast == nil {
 		return spinner.New().View()

@@ -41,7 +41,7 @@ func (i *sidebarItem) Description() string {
 
 func NewSidebar(app *App) *Sidebar {
 	d := list.NewDefaultDelegate()
-	d.SetHeight(2)
+	d.SetHeight(1)
 	d.ShowDescription = false
 	// d.Styles.NormalTitle.Border(lipgloss.NormalBorder(), true, true, true, true).Margin(0).Padding(0).AlignHorizontal(lipgloss.Left)
 	// d.Styles.SelectedTitle.Border(lipgloss.NormalBorder(), true, true, true, true).Margin(0).Padding(0).AlignHorizontal(lipgloss.Left)
@@ -70,7 +70,7 @@ func NewSidebar(app *App) *Sidebar {
 func getUserChannelsCmd() tea.Cmd {
 	return func() tea.Msg {
 		fid := api.GetSigner().FID
-		channels, err := api.GetClient().GetUserChannels(fid, true, api.WithLimit(10))
+		channels, err := api.GetClient().GetUserChannels(fid, true, api.WithLimit(100))
 		if err != nil {
 			log.Println("error getting user channels: ", err)
 			return nil

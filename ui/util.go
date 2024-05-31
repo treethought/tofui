@@ -7,6 +7,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+var (
+  EmojiLike = "❤️"
+  EmojiEmptyLike = "🤍"
+  EmojiRecyle = "♻️"
+  EmojiComment = "💬"
+)
+
 func OpenURL(url string) tea.Cmd {
 	return func() tea.Msg {
 		var cmd string
