@@ -124,6 +124,12 @@ func (m *FeedView) Clear() {
 	m.req = nil
 }
 
+func likeCastCmd(cast *api.Cast) tea.Cmd {
+	return func() tea.Msg {
+		log.Println("liking cast", cast.Hash)
+		return api.GetClient().React(cast.Hash, "like")
+	}
+}
 func getFeedCmd(req *api.FeedRequest) tea.Cmd {
 	return func() tea.Msg {
 		if req.Limit == 0 {
@@ -229,6 +235,13 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.Clear()
 			return m, tea.Sequence(focusCmd("feed"), getFeedCmd(&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: current.cast.ParentURL, Limit: 100}))
+		}
+		if msg.String() == "l" {
+			current := m.getCurrentItem()
+			if current.cast.Hash == "" {
+				return m, nil
+			}
+			return m, likeCastCmd(current.cast)
 		}
 
 	case loadTickMsg:

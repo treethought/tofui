@@ -1,10 +1,18 @@
 package api
 
-import "time"
-
+import (
+	"context"
+	"errors"
+	"log"
+	"time"
+)
 
 type Embed struct {
-	URL string `json:"url"`
+	URL    string `json:"url"`
+	CastId struct {
+		Hash string `json:"hash"`
+		FID  int32  `json:"fid"`
+	}
 }
 
 type Reaction struct {
@@ -36,4 +44,41 @@ type Cast struct {
 
 func (c Cast) HumanTime() string {
 	return c.Timestamp.Format("Jan 2 15:04")
+}
+type CastPayload struct {
+	SignerUUID      string  `json:"signer_uuid"`
+	Text            string  `json:"text"`
+	Parent          string  `json:"parent"`
+	ChannelID       string  `json:"channel_id"`
+	Idem            string  `json:"idem"`
+	ParentAuthorFID int32   `json:"parent_author_fid"`
+	Embeds          []Embed `json:"embeds"`
+}
+
+type PostCastResponse struct {
+	Success bool
+	Cast    Cast
+}
+
+func (c *Client) PostCast(text string) (*PostCastResponse, error) {
+	s := GetSigner()
+	if s == nil {
+		return nil, errors.New("no signer found")
+	}
+	payload := CastPayload{
+		Text:       text,
+		SignerUUID: s.UUID,
+	}
+	log.Println("posting cast: ", text)
+
+	var resp PostCastResponse
+	if err := c.doPostInto(context.TODO(), "/cast", payload, &resp); err != nil {
+		log.Println("failed to post cast: ", err)
+		return nil, err
+	}
+	if !resp.Success {
+		return nil, errors.New("failed to post cast")
+	}
+
+	return &resp, nil
 }

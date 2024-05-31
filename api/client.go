@@ -1,10 +1,12 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 )
 
@@ -61,6 +63,30 @@ func (c *Client) SetAPIKey(key string) {
 	c.apiKey = key
 }
 
+func (c *Client) doPostRequest(ctx context.Context, path string, body io.Reader, opts ...RequestOption) (*http.Response, error) {
+	url := c.buildEndpoint(path)
+
+	log.Println("sending request to: ", url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, body)
+	if err != nil {
+		log.Println("failed to create request: ", err)
+		return nil, err
+	}
+	req.Header.Add("accept", "application/json")
+	req.Header.Add("api_key", c.apiKey)
+	req.Header.Add("content-type", "application/json")
+
+	for _, opt := range c.persistantOpts {
+		log.Println("applying persistant option")
+		opt(req)
+	}
+
+	for _, opt := range opts {
+		opt(req)
+	}
+	return c.c.Do(req)
+}
+
 func (c *Client) doRequest(ctx context.Context, path string, opts ...RequestOption) (*http.Response, error) {
 	url := c.buildEndpoint(path)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -98,6 +124,31 @@ func (c *Client) doRequestInto(ctx context.Context, path string, v interface{}, 
 	return nil
 }
 
+func (c *Client) doPostInto(ctx context.Context, path string, body interface{}, v interface{}, opts ...RequestOption) error {
+	data, err := json.Marshal(body)
+	if err != nil {
+		return NeynarError{"failed to marshal body", 0, path, err}
+	}
+	log.Println("sending payload: ", string(data))
+
+	r := bytes.NewReader(data)
+	resp, err := c.doPostRequest(ctx, path, r, opts...)
+	if err != nil {
+		return NeynarError{"failed to create request", 0, path, err}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		d, _ := io.ReadAll(resp.Body)
+		return NeynarError{string(d), resp.StatusCode, path, nil}
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(v); err != nil {
+		return NeynarError{"failed to decode response", resp.StatusCode, path, err}
+	}
+	return nil
+}
+
 type RequestOption func(*http.Request)
 
 func setQueryParam(r *http.Request, key, value string) {
@@ -119,4 +170,3 @@ func WithLimit(limit int) RequestOption {
 func WithFID(fid uint64) RequestOption {
 	return WithQuery("fid", fmt.Sprintf("%d", fid))
 }
-
