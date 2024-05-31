@@ -18,6 +18,16 @@ var (
 	docStyle = lipgloss.NewStyle().Margin(1, 2)
 )
 
+type apiErrorMsg struct {
+	err error
+}
+
+type reactMsg struct {
+	hash  string
+	rtype string
+	state bool
+}
+
 type FeedView struct {
 	compact bool
 	client  *api.Client
@@ -32,6 +42,7 @@ type FeedView struct {
 func newTable() table.Model {
 	columns := []table.Column{
 		{Title: "channel", Width: 20},
+		{Title: "", Width: 2},
 		{Title: "user", Width: 20},
 		{Title: "cast", Width: 200},
 	}
@@ -127,7 +138,10 @@ func (m *FeedView) Clear() {
 func likeCastCmd(cast *api.Cast) tea.Cmd {
 	return func() tea.Msg {
 		log.Println("liking cast", cast.Hash)
-		return api.GetClient().React(cast.Hash, "like")
+		if err := api.GetClient().React(cast.Hash, "like"); err != nil {
+			return apiErrorMsg{err}
+		}
+		return reactMsg{hash: cast.Hash, rtype: "like", state: true}
 	}
 }
 func getFeedCmd(req *api.FeedRequest) tea.Cmd {
@@ -142,6 +156,19 @@ func getFeedCmd(req *api.FeedRequest) tea.Cmd {
 		}
 		return feed
 	}
+}
+
+func (m *FeedView) SetDefaultParams() tea.Cmd {
+	return tea.Sequence(
+		m.setItems(nil),
+		getFeedCmd(&api.FeedRequest{FeedType: "following", Limit: 100}),
+	)
+}
+func (m *FeedView) SetParams(req *api.FeedRequest) tea.Cmd {
+	return tea.Sequence(
+		m.setItems(nil),
+		getFeedCmd(req),
+	)
 }
 
 func (m *FeedView) setItems(feed *api.FeedResponse) tea.Cmd {
@@ -251,6 +278,15 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case *api.FeedResponse:
 		m.loading.SetActive(false)
 		return m, m.setItems(msg)
+	case reactMsg:
+		current := m.getCurrentItem()
+		if current.cast.Hash != msg.hash {
+			return m, m.SetDefaultParams()
+		}
+		if msg.rtype == "like" && msg.state {
+			current.cast.ViewerContext.Liked = true
+		}
+
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
 		m.list.SetSize(msg.Width-h, msg.Height-v)

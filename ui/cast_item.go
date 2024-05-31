@@ -161,8 +161,13 @@ func (m *CastFeedItem) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *CastFeedItem) View() string { return "" }
 
 func (m *CastFeedItem) AsRow() []string {
+	liked := ""
+	if m.cast.ViewerContext.Liked {
+		liked = "❤️"
+	}
 	return []string{
 		fmt.Sprintf("/%s", m.channel),
+		liked,
 		m.cast.Author.DisplayName,
 		m.cast.Text,
 	}

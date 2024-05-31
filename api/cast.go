@@ -16,12 +16,15 @@ type Embed struct {
 }
 
 type Reaction struct {
-	FIID int32
+	FID   int32  `json:"fid"`
+	FName string `json:"fname"`
 }
 
 type Reactions struct {
-	Likes   []Reaction `json:"likes"`
-	Recasts []Reaction `json:"recasts"`
+	LikesCount   uint       `json:"likes_count"`
+	RecastsCount uint       `json:"recasts_count"`
+	Likes        []Reaction `json:"likes"`
+	Recasts      []Reaction `json:"recasts"`
 }
 
 type Cast struct {
@@ -36,15 +39,24 @@ type Cast struct {
 	Text      string    `json:"text"`
 	Timestamp time.Time `json:"timestamp"`
 	Embeds    []Embed   `json:"embeds"`
-	Reactions Reaction  `json:"reactions"`
-	// Replies struct {
-	// 	Count int32 `json:"count,string"`
-	// }
+	Reactions Reactions `json:"reactions"`
+	Replies   struct {
+		Count int32 `json:"count"`
+	}
+	ViewerContext struct {
+		Liked    bool `json:"liked"`
+		Recasted bool `json:"recasted"`
+	} `json:"viewer_context"`
 }
 
 func (c Cast) HumanTime() string {
 	return c.Timestamp.Format("Jan 2 15:04")
 }
+
+type CastClient struct {
+	c *Client
+}
+
 type CastPayload struct {
 	SignerUUID      string  `json:"signer_uuid"`
 	Text            string  `json:"text"`
