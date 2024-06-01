@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"text/template"
 
+	"github.com/treethought/castr/config"
 	"github.com/treethought/castr/db"
 )
 
@@ -51,12 +53,26 @@ func GetSigner() *Signer {
 	return signer
 }
 
-func StartSigninServer(f func(fid uint64, signerUUid string)) {
+func StartSigninServer(cfg *config.Config, f func(fid uint64, signerUUid string)) {
+	tmpl, err := template.New("signin").Parse(string(sinwhtml))
+	if err != nil {
+		log.Fatal(err)
+	}
+	data := struct {
+		ClientID string
+	}{
+		ClientID: cfg.Neynar.ClientID,
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/signin", func(w http.ResponseWriter, r *http.Request) {
-		w.Write(sinwhtml)
+		err := tmpl.Execute(w, data)
+		if err != nil {
+			log.Println("failed to execute template: ", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	})
 	mux.HandleFunc("/signin/success", func(w http.ResponseWriter, r *http.Request) {
 		query := r.URL.Query()

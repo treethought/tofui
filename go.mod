@@ -12,6 +12,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	golang.org/x/image v0.15.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -34,6 +35,7 @@ require (
 	github.com/google/flatbuffers v1.12.1 // indirect
 	github.com/gorilla/css v1.0.0 // indirect
 	github.com/klauspost/compress v1.12.3 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect

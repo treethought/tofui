@@ -8,6 +8,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+
+	"github.com/treethought/castr/config"
 )
 
 var (
@@ -39,14 +41,16 @@ type Client struct {
 	c              *http.Client
 	apiKey         string
 	baseURL        string
+	clientID       string
 	persistantOpts []RequestOption
 }
 
-func NewClient(url, apiKey string) *Client {
+func NewClient(cfg *config.Config) *Client {
 	client = &Client{
-		c:       http.DefaultClient,
-		apiKey:  apiKey,
-		baseURL: url,
+		c:        http.DefaultClient,
+		apiKey:   cfg.Neynar.APIKey,
+		baseURL:  cfg.Neynar.HubURL,
+		clientID: cfg.Neynar.ClientID,
 	}
 	return client
 }

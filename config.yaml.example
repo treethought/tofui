@@ -1,0 +1,4 @@
+neynar:
+  api_key: "1234"
+  client_id: "abcd"
+  hub_url: "https://api.neynar.com/v2/farcaster"
