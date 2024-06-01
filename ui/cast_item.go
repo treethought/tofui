@@ -65,7 +65,7 @@ func UsernameHeader(user *api.User, img *ImageModel) string {
 	)
 }
 
-func CastStats(cast *api.Cast) string {
+func CastStats(cast *api.Cast, margin int) string {
 	if cast == nil {
 		return spinner.New().View()
 	}
@@ -75,14 +75,13 @@ func CastStats(cast *api.Cast) string {
 	}
 	stats := lipgloss.JoinHorizontal(lipgloss.Top,
 		lipgloss.NewStyle().Render(fmt.Sprintf("%d ", cast.Replies.Count)),
-		lipgloss.NewStyle().MarginRight(10).Render(EmojiComment),
+		lipgloss.NewStyle().MarginRight(margin).Render(EmojiComment),
 		lipgloss.NewStyle().Render(fmt.Sprintf("%d ", cast.Reactions.LikesCount)),
-		lipgloss.NewStyle().MarginRight(10).Render(liked),
+		lipgloss.NewStyle().MarginRight(margin).Render(liked),
 		lipgloss.NewStyle().Render(fmt.Sprintf("%d ", cast.Reactions.RecastsCount)),
-		lipgloss.NewStyle().MarginRight(10).Render(EmojiRecyle),
+		lipgloss.NewStyle().MarginRight(margin).Render(EmojiRecyle),
 	)
-	style := lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderBottom(true).Padding(0)
-	return style.Render(stats)
+	return stats
 
 }
 
@@ -182,17 +181,17 @@ func (m *CastFeedItem) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *CastFeedItem) View() string { return "" }
 
-func (m *CastFeedItem) AsRow() []string {
-	liked := ""
-	if m.cast.ViewerContext.Liked {
-		liked = "❤️"
+func (m *CastFeedItem) AsRow(ch, stats bool) []string {
+	cols := []string{}
+	if ch {
+		cols = append(cols, fmt.Sprintf("/%s", m.channel))
 	}
-	return []string{
-		fmt.Sprintf("/%s", m.channel),
-		liked,
-		m.cast.Author.DisplayName,
-		m.cast.Text,
+	if stats {
+		cols = append(cols, CastStats(m.cast, 2))
+	} else {
 	}
+	cols = append(cols, m.cast.Author.DisplayName, m.cast.Text)
+	return cols
 }
 
 func (i *CastFeedItem) Title() string {

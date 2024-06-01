@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
@@ -29,22 +28,23 @@ type reactMsg struct {
 }
 
 type FeedView struct {
-	compact bool
 	client  *api.Client
-	list    list.Model
 	table   table.Model
 	cursor  int
 	items   []*CastFeedItem
 	loading *Loading
 	req     *api.FeedRequest
+
+	showChannel bool
+	showStats   bool
 }
 
 func newTable() table.Model {
 	columns := []table.Column{
 		{Title: "channel", Width: 20},
-		{Title: "", Width: 2},
+		{Title: "", Width: 20},
 		{Title: "user", Width: 20},
-		{Title: "cast", Width: 200},
+		{Title: "cast", Width: 100},
 	}
 
 	t := table.New(
@@ -73,30 +73,6 @@ func newTable() table.Model {
 	return t
 }
 
-func newList() list.Model {
-	d := list.NewDefaultDelegate()
-	d.SetHeight(6)
-	d.Styles.NormalTitle.Width(80)
-	d.Styles.SelectedTitle.Width(80)
-	d.Styles.NormalTitle.MaxHeight(2)
-	d.Styles.SelectedTitle.MaxHeight(2)
-
-	d.Styles.DimmedDesc.MaxHeight(10)
-	d.Styles.NormalDesc.MaxHeight(10)
-	d.Styles.DimmedDesc.Width(80)
-	d.Styles.NormalDesc.Width(80)
-
-	list := list.New([]list.Item{}, d, 0, 0)
-	list.KeyMap.CursorUp.SetKeys("k", "up")
-	list.KeyMap.CursorDown.SetKeys("j", "down")
-	list.KeyMap.Quit.SetKeys("ctrl+c")
-	list.Title = "Feed"
-	list.SetShowTitle(true)
-	list.SetFilteringEnabled(false)
-	return list
-
-}
-
 func DefaultFeedParams() *api.FeedRequest {
 	return &api.FeedRequest{FeedType: "following", Limit: 100}
 }
@@ -105,14 +81,38 @@ func NewFeedView(client *api.Client, req *api.FeedRequest) *FeedView {
 	p := progress.New()
 	p.ShowPercentage = false
 	return &FeedView{
-		client:  client,
-		list:    newList(),
-		table:   newTable(),
-		items:   []*CastFeedItem{},
-		loading: NewLoading(),
-		compact: true,
-		req:     req,
+		client:      client,
+		table:       newTable(),
+		items:       []*CastFeedItem{},
+		loading:     NewLoading(),
+		req:         req,
+		showChannel: true,
+		showStats:   true,
 	}
+}
+
+func (m *FeedView) SetShowChannel(show bool) {
+	m.showChannel = show
+	m.setTableConfig()
+}
+func (m *FeedView) SetShowStats(show bool) {
+	m.showStats = show
+	m.setTableConfig()
+}
+
+func (m *FeedView) setTableConfig() {
+	columns := []table.Column{}
+	if m.showChannel {
+		columns = append(columns, table.Column{Title: "channel", Width: 20})
+	}
+	if m.showStats {
+		columns = append(columns, table.Column{Title: "", Width: 20})
+	}
+	columns = append(columns,
+		table.Column{Title: "user", Width: 20},
+		table.Column{Title: "cast", Width: 100},
+	)
+	m.table.SetColumns(columns)
 }
 
 func (m *FeedView) Init() tea.Cmd {
@@ -171,41 +171,26 @@ func (m *FeedView) SetParams(req *api.FeedRequest) tea.Cmd {
 	)
 }
 
-func (m *FeedView) setItems(feed *api.FeedResponse) tea.Cmd {
-	height := 0
-	items := []list.Item{}
+func (m *FeedView) setItems(casts []*api.Cast) tea.Cmd {
 	rows := []table.Row{}
 	cmds := []tea.Cmd{}
-	for _, cast := range feed.Casts {
-		ci, cmd := NewCastFeedItem(cast, m.compact)
+	for _, cast := range casts {
+		ci, cmd := NewCastFeedItem(cast, true)
 		m.items = append(m.items, ci)
 		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
-		if m.compact {
-			rows = append(rows, ci.AsRow())
-			continue
-		}
-		items = append(items, ci)
-		height += lipgloss.Height(cast.Text) + 1
+		rows = append(rows, ci.AsRow(m.showChannel, m.showStats))
 	}
-	if m.compact {
-		m.table.SetRows(rows)
-		return tea.Batch(cmds...)
-	}
-
-	cmd := m.list.SetItems(items)
-	return tea.Batch(cmd, tea.Batch(cmds...))
+	m.table.SetRows(rows)
+	return tea.Batch(cmds...)
 }
 
 func (m *FeedView) populateItems() tea.Cmd {
 	m.loading.SetActive(false)
-	if !m.compact {
-		return m.list.SetItems([]list.Item{})
-	}
 	rows := []table.Row{}
 	for _, i := range m.items {
-		rows = append(rows, i.AsRow())
+		rows = append(rows, i.AsRow(m.showChannel, m.showStats))
 	}
 	m.table.SetRows(rows)
 	return nil
@@ -218,10 +203,6 @@ func selectCast(cast *api.Cast) tea.Cmd {
 }
 
 func (m *FeedView) getCurrentItem() *CastFeedItem {
-	if !m.compact {
-		return m.list.SelectedItem().(*CastFeedItem)
-	}
-
 	row := m.table.Cursor()
 	if row >= len(m.items) {
 		return nil
@@ -229,7 +210,6 @@ func (m *FeedView) getCurrentItem() *CastFeedItem {
 	return m.items[row]
 }
 func (m *FeedView) SetSize(w, h int) {
-	m.list.SetSize(w, h)
 	m.table.SetWidth(w)
 	m.table.SetHeight(h)
 }
@@ -277,7 +257,7 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case *api.FeedResponse:
 		m.loading.SetActive(false)
-		return m, m.setItems(msg)
+		return m, m.setItems(msg.Casts)
 	case reactMsg:
 		current := m.getCurrentItem()
 		if current.cast.Hash != msg.hash {
@@ -289,7 +269,6 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		h, v := docStyle.GetFrameSize()
-		m.list.SetSize(msg.Width-h, msg.Height-v)
 		m.table.SetWidth(msg.Width - h)
 		m.table.SetHeight(msg.Height - v)
 		return m, nil
@@ -308,19 +287,12 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	m.items = newItems
 
-	// update list/table with updated items
+	// update table with updated items
 	m.populateItems()
 
-	if m.compact {
-		t, cmd := m.table.Update(msg)
-		cmds = append(cmds, cmd)
-		m.table = t
-	} else {
-		l, cmd := m.list.Update(msg)
-		cmds = append(cmds, cmd)
-		m.list = l
-	}
-
+	t, cmd := m.table.Update(msg)
+	cmds = append(cmds, cmd)
+	m.table = t
 	return m, tea.Batch(cmds...)
 }
 
@@ -328,9 +300,6 @@ func (m *FeedView) View() string {
 	if m.loading.IsActive() {
 		return m.loading.View()
 	}
-	if m.compact {
-		return m.table.View()
-	}
-	return m.list.View()
+	return m.table.View()
 
 }

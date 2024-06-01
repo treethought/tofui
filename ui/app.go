@@ -155,7 +155,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		feed := a.GetModel("feed").(*FeedView)
 		feed.Clear()
 		focusCmd := a.SetFocus("feed")
-		return a, tea.Batch(feed.setItems(msg), focusCmd)
+		return a, tea.Batch(feed.setItems(msg.Casts), focusCmd)
 	case SelectProfileMsg:
 		focusCmd := a.SetFocus("profile")
 		cmd := a.GetModel("profile").(*Profile).SetFID(msg.fid)
