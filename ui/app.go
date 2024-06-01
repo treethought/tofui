@@ -138,13 +138,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if cmd != nil {
 			return a, cmd
 		}
-	case []*api.Channel:
-		if a.showQuickSelect {
-			_, qcmd := a.QuickSelect.Update(msg)
-			return a, qcmd
+	case *channelListMsg:
+		if msg.activeOnly {
+			_, cmd := a.sidebar.Update(msg.channels)
+			return a, cmd
 		} else {
-			_, scmd := a.sidebar.Update(msg)
-			return a, scmd
+			_, cmd := a.QuickSelect.Update(msg.channels)
+			return a, cmd
 		}
 	case *api.FeedResponse:
 		// allow msg to pass through to profile's embedded feed
@@ -183,7 +183,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.publish.SetSize(pw, py)
 
 		childMsg := tea.WindowSizeMsg{
-			Width:  wx - pw,
+			Width:  wx - pw - 1,
 			Height: wy - py - 1,
 		}
 

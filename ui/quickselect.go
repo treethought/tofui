@@ -58,6 +58,11 @@ func NewQuickSelect(app *App) *QuickSelect {
 	return &QuickSelect{app: app, channels: &l}
 }
 
+type channelListMsg struct {
+	channels   []*api.Channel
+	activeOnly bool
+}
+
 func getUserChannelsCmd(activeOnly bool) tea.Cmd {
 	return func() tea.Msg {
 		fid := api.GetSigner().FID
@@ -66,7 +71,7 @@ func getUserChannelsCmd(activeOnly bool) tea.Cmd {
 			log.Println("error getting user channels: ", err)
 			return nil
 		}
-		return channels
+		return &channelListMsg{channels, activeOnly}
 	}
 }
 
