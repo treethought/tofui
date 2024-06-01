@@ -35,6 +35,8 @@ type App struct {
 	prev            string
 	QuickSelect     *QuickSelect
 	showQuickSelect bool
+	publish         *PublishInput
+	showPublish     bool
 }
 
 func NewApp() *App {
@@ -43,6 +45,7 @@ func NewApp() *App {
 	}
 	a.sidebar = NewSidebar(a)
 	a.QuickSelect = NewQuickSelect(a)
+	a.publish = NewPublishInput(a)
 	return a
 }
 
@@ -69,6 +72,10 @@ func (a *App) Register(name string, model tea.Model) {
 func (a *App) SetFocus(name string) tea.Cmd {
 	if a.showQuickSelect {
 		a.showQuickSelect = false
+	}
+	if a.showPublish {
+		a.showPublish = false
+		a.publish.SetFocus(false)
 	}
 	if name == "" || name == a.focused {
 		return nil
@@ -104,7 +111,7 @@ func (a *App) FocusPrev() tea.Cmd {
 func (a *App) Init() tea.Cmd {
 	log.Println("a.Init()")
 	cmds := []tea.Cmd{}
-	cmds = append(cmds, a.sidebar.Init(), a.QuickSelect.Init())
+	cmds = append(cmds, a.sidebar.Init(), a.QuickSelect.Init(), a.publish.Init())
 	focus := a.GetFocused()
 	if focus != nil {
 		cmds = append(cmds, focus.Init())
@@ -167,13 +174,17 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		sw := wx / 6
 		a.sidebar.nav.SetSize(sw, wy)
 
-		qw := wx / 2
+		qw := wx - sw
 		qh := wy / 3
 		a.QuickSelect.SetSize(qw, qh)
 
+		pw := wx - sw
+		py := wy / 3
+		a.publish.SetSize(pw, py)
+
 		childMsg := tea.WindowSizeMsg{
-			Width:  wx - sw,
-			Height: wy,
+			Width:  wx - pw,
+			Height: wy - py - 1,
 		}
 
 		for n, m := range a.models {
@@ -182,6 +193,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 	case tea.KeyMsg:
+		if a.showPublish {
+			_, cmd := a.publish.Update(msg)
+			return a, cmd
+		}
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return a, tea.Quit
@@ -189,10 +204,17 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.sidebarActive = !a.sidebarActive
 		case "esc":
 			return a, a.FocusPrev()
-		case "ctrl+p":
+		case "ctrl+k":
 			a.showQuickSelect = true
+		case "P":
+			a.showPublish = true
+			a.publish.SetFocus(true)
+			return a, nil
 		}
-
+	}
+	if a.showPublish {
+		_, cmd := a.publish.Update(msg)
+		return a, cmd
 	}
 	if a.showQuickSelect {
 		q, cmd := a.QuickSelect.Update(msg)
@@ -220,6 +242,9 @@ func (a *App) View() string {
 	focus := a.GetFocused()
 	if focus == nil {
 		return "no focused model"
+	}
+	if a.showPublish {
+		return a.publish.View()
 	}
 	if a.showQuickSelect {
 		return a.QuickSelect.View()

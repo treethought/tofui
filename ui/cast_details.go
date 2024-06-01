@@ -1,9 +1,7 @@
 package ui
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
