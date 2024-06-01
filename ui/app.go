@@ -24,15 +24,17 @@ type SelectCastMsg struct {
 }
 
 type App struct {
-	models        map[string]tea.Model
-	focusedModel  tea.Model
-	focused       string
-	height        int
-	width         int
-	sidebar       *Sidebar
-	hideSidebar   bool
-	sidebarActive bool
-	prev          string
+	models          map[string]tea.Model
+	focusedModel    tea.Model
+	focused         string
+	height          int
+	width           int
+	sidebar         *Sidebar
+	hideSidebar     bool
+	sidebarActive   bool
+	prev            string
+	QuickSelect     *QuickSelect
+	showQuickSelect bool
 }
 
 func NewApp() *App {
@@ -40,6 +42,7 @@ func NewApp() *App {
 		models: make(map[string]tea.Model),
 	}
 	a.sidebar = NewSidebar(a)
+	a.QuickSelect = NewQuickSelect(a)
 	return a
 }
 
@@ -64,6 +67,9 @@ func (a *App) Register(name string, model tea.Model) {
 }
 
 func (a *App) SetFocus(name string) tea.Cmd {
+	if a.showQuickSelect {
+		a.showQuickSelect = false
+	}
 	if name == "" || name == a.focused {
 		return nil
 	}
@@ -98,7 +104,7 @@ func (a *App) FocusPrev() tea.Cmd {
 func (a *App) Init() tea.Cmd {
 	log.Println("a.Init()")
 	cmds := []tea.Cmd{}
-	cmds = append(cmds, a.sidebar.Init())
+	cmds = append(cmds, a.sidebar.Init(), a.QuickSelect.Init())
 	focus := a.GetFocused()
 	if focus != nil {
 		cmds = append(cmds, focus.Init())
@@ -126,8 +132,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, cmd
 		}
 	case []*api.Channel:
-		_, cmd := a.sidebar.Update(msg)
-		return a, cmd
+		if a.showQuickSelect {
+			_, qcmd := a.QuickSelect.Update(msg)
+			return a, qcmd
+		} else {
+			_, scmd := a.sidebar.Update(msg)
+			return a, scmd
+		}
 	case *api.FeedResponse:
 		// allow msg to pass through to profile's embedded feed
 		if a.focused == "profile" {
@@ -153,8 +164,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// substract the sidebar width from the window width
 		wx, wy := msg.Width, msg.Height
 
-		sw := wx / 4
+		sw := wx / 6
 		a.sidebar.nav.SetSize(sw, wy)
+
+		qw := wx / 2
+		qh := wy / 3
+		a.QuickSelect.SetSize(qw, qh)
 
 		childMsg := tea.WindowSizeMsg{
 			Width:  wx - sw,
@@ -174,7 +189,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.sidebarActive = !a.sidebarActive
 		case "esc":
 			return a, a.FocusPrev()
+		case "ctrl+p":
+			a.showQuickSelect = true
 		}
+
+	}
+	if a.showQuickSelect {
+		q, cmd := a.QuickSelect.Update(msg)
+		a.QuickSelect = q.(*QuickSelect)
+		return a, cmd
 	}
 	if a.sidebarActive {
 		_, cmd := a.sidebar.Update(msg)
@@ -197,6 +220,9 @@ func (a *App) View() string {
 	focus := a.GetFocused()
 	if focus == nil {
 		return "no focused model"
+	}
+	if a.showQuickSelect {
+		return a.QuickSelect.View()
 	}
 	if a.hideSidebar {
 		return focus.View()

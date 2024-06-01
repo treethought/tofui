@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -26,7 +28,7 @@ func NewCastView(cast *api.Cast) *CastView {
 
 func (m *CastView) SetCast(cast *api.Cast) tea.Cmd {
 	m.cast = cast
-	return m.Init()
+	return tea.Sequence(m.img.SetURL("", false), m.Init())
 }
 
 func (m *CastView) Init() tea.Cmd {
@@ -55,6 +57,9 @@ func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if msg.String() == "o" {
 			return m, OpenURL(fmt.Sprintf("https://warpcast.com/%s/%s", m.cast.Author.Username, m.cast.Hash))
+		}
+		if msg.String() == "l" {
+			return m, likeCastCmd(m.cast)
 		}
 	}
 	cmds := []tea.Cmd{}

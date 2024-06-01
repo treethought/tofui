@@ -67,17 +67,6 @@ func NewSidebar(app *App) *Sidebar {
 	return &Sidebar{app: app, nav: &l}
 }
 
-func getUserChannelsCmd() tea.Cmd {
-	return func() tea.Msg {
-		fid := api.GetSigner().FID
-		channels, err := api.GetClient().GetUserChannels(fid, true, api.WithLimit(100))
-		if err != nil {
-			log.Println("error getting user channels: ", err)
-			return nil
-		}
-		return channels
-	}
-}
 func (m *Sidebar) navHeader() []list.Item {
 	items := []list.Item{}
 	items = append(items, &sidebarItem{name: "profile", value: fmt.Sprintf("%d", api.GetSigner().FID)})
@@ -89,7 +78,7 @@ func (m *Sidebar) navHeader() []list.Item {
 func (m *Sidebar) Init() tea.Cmd {
 	log.Println("sidebar init")
 	log.Println("sidebar set items")
-	return tea.Batch(m.nav.SetItems(m.navHeader()), getUserChannelsCmd())
+	return tea.Batch(m.nav.SetItems(m.navHeader()), getUserChannelsCmd(true))
 }
 
 func selectProfileCmd(fid uint64) tea.Cmd {

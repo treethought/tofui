@@ -32,9 +32,10 @@ var (
 	headerStyle = lipgloss.NewStyle().BorderBottom(true)
 
 	infoStyle = lipgloss.NewStyle().
+			MarginLeft(5).MarginRight(5).
 			BorderStyle(lipgloss.NormalBorder()).
 			BorderTop(true).
-			BorderForeground(subtle)
+			BorderForeground(subtle).AlignHorizontal(lipgloss.Center)
 
 	contentStyle = lipgloss.NewStyle()
 
