@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -10,10 +11,11 @@ import (
 )
 
 type CastView struct {
-	cast    *api.Cast
-	img     *ImageModel
-	pfp     *ImageModel
-	replies *RepliesView
+	cast           *api.Cast
+	img            *ImageModel
+	pfp            *ImageModel
+	replies        *RepliesView
+	vp             viewport.Model
 }
 
 func NewCastView(cast *api.Cast) *CastView {
@@ -22,13 +24,17 @@ func NewCastView(cast *api.Cast) *CastView {
 		pfp:     NewImage(false, true, special),
 		img:     NewImage(true, true, special),
 		replies: NewRepliesView(),
+		vp:      viewport.New(0, 0),
 	}
 	return c
 }
 
 func (m *CastView) SetCast(cast *api.Cast) tea.Cmd {
 	m.cast = cast
-	return tea.Sequence(m.img.SetURL("", false), m.Init())
+	m.img = NewImage(true, true, special)
+	m.pfp = NewImage(true, true, special)
+	m.vp.SetContent(CastContent(m.cast, 10))
+	return m.Init()
 }
 
 func (m *CastView) Init() tea.Cmd {
@@ -50,6 +56,9 @@ func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		cmds := []tea.Cmd{}
+		v, cmd := m.vp.Update(msg)
+		m.vp = v
+		cmds = append(cmds, cmd)
 		if m.img != nil {
 			cmds = append(cmds, m.img.SetSize(msg.Width/2, msg.Height/2))
 		}
@@ -65,6 +74,10 @@ func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	cmds := []tea.Cmd{}
+	v, vcmd := m.vp.Update(msg)
+	m.vp = v
+	cmds = append(cmds, vcmd)
+
 	img, icmd := m.img.Update(msg)
 	m.img = img
 	cmds = append(cmds, icmd)
