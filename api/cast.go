@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"time"
 )
@@ -43,6 +44,7 @@ type Cast struct {
 	Replies   struct {
 		Count int32 `json:"count"`
 	}
+	DirectReplies []*Cast `json:"direct_replies"`
 	ViewerContext struct {
 		Liked    bool `json:"liked"`
 		Recasted bool `json:"recasted"`
@@ -93,4 +95,36 @@ func (c *Client) PostCast(text string) (*PostCastResponse, error) {
 	}
 
 	return &resp, nil
+}
+
+type ConversationResponse struct {
+	Conversation *struct {
+		Cast Cast `json:"cast"`
+	} `json:"conversation"`
+}
+
+type Conversation struct {
+	Cast
+}
+
+func (c *Client) GetCastWithReplies(hash string) (*Cast, error) {
+	path := "/cast/conversation"
+	opts := []RequestOption{
+		WithQuery("identifier", hash),
+		WithQuery("type", "hash"),
+		WithQuery("reply_depth", "10"),
+	}
+	signer := GetSigner()
+	if signer != nil {
+		opts = append(opts, WithQuery("viewer_fid", fmt.Sprintf("%d", signer.FID)))
+	}
+
+	var resp ConversationResponse
+	if err := c.doRequestInto(context.TODO(), path, &resp, opts...); err != nil {
+		return nil, err
+	}
+	if resp.Conversation == nil {
+		return nil, errors.New("no replies found")
+	}
+	return &resp.Conversation.Cast, nil
 }
