@@ -37,6 +37,30 @@ type Channel struct {
 	Hosts         []User `json:"hosts"`
 }
 
+func cacheChannels(channels []*Channel) {
+	for _, ch := range channels {
+    log.Println("caching channel: ", ch.ID)
+		key := fmt.Sprintf("channel:%s", ch.ParentURL)
+		mkey := fmt.Sprintf("channelurl:%s", ch.ID)
+		_ = db.GetDB().Set([]byte(mkey), []byte(ch.ParentURL))
+
+		if d, err := json.Marshal(ch); err == nil {
+			if err := db.GetDB().Set([]byte(key), []byte(d)); err != nil {
+				log.Println("failed to cache channel: ", err)
+			}
+		}
+	}
+}
+
+func (c *Client) GetChannelUrlById(id string) string {
+	key := fmt.Sprintf("channelurl:%s", id)
+	cached, err := db.GetDB().Get([]byte(key))
+	if err != nil {
+		return ""
+	}
+	return string(cached)
+}
+
 func (c *Client) GetUserChannels(fid uint64, active bool, opts ...RequestOption) ([]*Channel, error) {
 	var path string
 	if active {
@@ -53,11 +77,29 @@ func (c *Client) GetUserChannels(fid uint64, active bool, opts ...RequestOption)
 	if resp.Channels == nil {
 		return nil, errors.New("no channels found")
 	}
+	cacheChannels(resp.Channels)
+
 	return resp.Channels, nil
 }
 
-func (c *Client) GetChannelByParentURL(pu string) (*Channel, error) {
-	key := fmt.Sprintf("channel:%s", pu)
+func (c *Client) SearchChannel(q string) ([]*Channel, error) {
+	path := "/channel/search"
+	opts := []RequestOption{WithQuery("q", q)}
+
+	var resp ChannelsResponse
+	if err := c.doRequestInto(context.TODO(), path, &resp, opts...); err != nil {
+		return nil, err
+	}
+	if resp.Channels == nil {
+		return nil, errors.New("no channels found")
+	}
+	cacheChannels(resp.Channels)
+	return resp.Channels, nil
+}
+
+func (c *Client) GetChannelByParentUrl(q string) (*Channel, error) {
+	// TODO: cache once and do mappiing from name to url
+	key := fmt.Sprintf("channel:%s", q)
 	cached, err := db.GetDB().Get([]byte(key))
 	if err == nil {
 		ch := &Channel{}
@@ -66,23 +108,31 @@ func (c *Client) GetChannelByParentURL(pu string) (*Channel, error) {
 		}
 		return ch, nil
 	}
+	return c.fetchChannel(q, "parent_url")
+}
+
+func (c *Client) GetChannelById(q string) (*Channel, error) {
+	purl := c.GetChannelUrlById(q)
+	if purl != "" {
+		return c.GetChannelByParentUrl(purl)
+	}
+	return c.fetchChannel(q, "id")
+}
+
+func (c *Client) fetchChannel(q, ttype string) (*Channel, error) {
 	path := "/channel"
 
-	opts := []RequestOption{WithQuery("id", pu), WithQuery("type", "parent_url")}
+	opts := []RequestOption{WithQuery("id", q), WithQuery("type", ttype)}
 
 	var resp ChannelResponse
-	err = c.doRequestInto(context.TODO(), path, &resp, opts...)
+	err := c.doRequestInto(context.TODO(), path, &resp, opts...)
 	if err != nil {
 		return nil, err
 	}
 	if resp.Channel.Name == "" {
 		return nil, errors.New("channel name empty")
 	}
-
-	d, _ := json.Marshal(resp.Channel)
-	if err := db.GetDB().Set([]byte(key), []byte(d)); err != nil {
-		log.Println("failed to cache channel: ", err)
-	}
+	cacheChannels([]*Channel{resp.Channel})
 	return resp.Channel, nil
 
 }
@@ -120,23 +170,28 @@ func (c *Client) FetchAllChannels() error {
 		if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
 			return err
 		}
-
-		for _, ch := range resp.Channels {
-			key := fmt.Sprintf("channel:%s", ch.ParentURL)
-			d, err := json.Marshal(ch)
-			if err != nil {
-				log.Println("failed to marshal channel: ", err)
-				continue
-			}
-			if err := db.GetDB().Set([]byte(key), []byte(d)); err != nil {
-				log.Println("failed to cache channel: ", err)
-			}
-		}
+		cacheChannels(resp.Channels)
 
 		if resp.Next.Cursor == nil {
 			break
 		}
 	}
+  log.Println("channels loaded")
 
 	return nil
+}
+
+func (c *Client) GetCachedChannelIds() ([]string, error) {
+	prefix := []byte("channelurl:")
+	keys, err := db.GetDB().GetKeys(prefix)
+	if err != nil {
+		log.Println("failed to get keys: ", err)
+		return nil, err
+	}
+	ids := make([]string, 0)
+	for _, k := range keys {
+		name := string(k[len(prefix):])
+		ids = append(ids, name)
+	}
+	return ids, nil
 }

@@ -78,6 +78,7 @@ func (m *Profile) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		fx := int(float64(x) * 0.1)
 		fy := int(float64(y) * 0.1)
 		m.pfp.SetSize(fx, fy)
+		m.feed.SetSize(x, y)
 		return m, nil
 
 	case ProfileMsg:

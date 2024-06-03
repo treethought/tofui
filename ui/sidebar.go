@@ -16,6 +16,27 @@ type Sidebar struct {
 	active   bool
 	nav      *list.Model
 	channels *list.Model
+	account  *api.User
+	pfp      *ImageModel
+}
+
+type currentAccountMsg struct {
+	account *api.User
+}
+
+func getCurrentAccount() tea.Cmd {
+	return func() tea.Msg {
+		signer := api.GetSigner()
+		if signer == nil {
+			return nil
+		}
+		user, err := api.GetClient().GetUserByFID(signer.FID)
+		if err != nil {
+			log.Println("error getting current account: ", err)
+			return nil
+		}
+		return &currentAccountMsg{account: user}
+	}
 }
 
 type sidebarItem struct {
@@ -39,20 +60,12 @@ func (i *sidebarItem) Description() string {
 	return ""
 }
 
+var navStyle = lipgloss.NewStyle().BorderRight(true).BorderStyle(lipgloss.RoundedBorder())
+
 func NewSidebar(app *App) *Sidebar {
 	d := list.NewDefaultDelegate()
 	d.SetHeight(1)
 	d.ShowDescription = false
-	// d.Styles.NormalTitle.Border(lipgloss.NormalBorder(), true, true, true, true).Margin(0).Padding(0).AlignHorizontal(lipgloss.Left)
-	// d.Styles.SelectedTitle.Border(lipgloss.NormalBorder(), true, true, true, true).Margin(0).Padding(0).AlignHorizontal(lipgloss.Left)
-	// d.Styles.NormalTitle.MaxHeight(2)
-	// d.Styles.SelectedTitle.MaxHeight(2)
-	// d.Styles.NormalTitle.Border(lipgloss.NormalBorder(), true, true, true, true)
-
-	// d.Styles.DimmedDesc.MaxHeight(10)
-	// d.Styles.NormalDesc.MaxHeight(10)
-	// d.Styles.DimmedDesc.Width(80)
-	// d.Styles.NormalDesc.Border(lipgloss.NormalBorder(), true, true, true, true).Margin(0).Padding(0).AlignHorizontal(lipgloss.Left)
 
 	l := list.New([]list.Item{}, d, 0, 0)
 	l.KeyMap.CursorUp.SetKeys("k", "up")
@@ -64,7 +77,24 @@ func NewSidebar(app *App) *Sidebar {
 	l.SetShowHelp(false)
 	l.SetShowStatusBar(false)
 
-	return &Sidebar{app: app, nav: &l}
+	pfp := NewImage(true, true, special)
+	pfp.SetSize(1, 1)
+
+	return &Sidebar{app: app, nav: &l, pfp: pfp}
+}
+
+func (m *Sidebar) SetSize(w, h int) {
+	x, y := navStyle.GetFrameSize()
+	m.nav.SetWidth(w - x - 2)
+	m.nav.SetHeight(h - y - 4)
+	m.pfp.SetSize(4, 4)
+}
+
+func (m *Sidebar) Active() bool {
+	return m.active
+}
+func (m *Sidebar) SetActive(active bool) {
+	m.active = active
 }
 
 func (m *Sidebar) navHeader() []list.Item {
@@ -77,8 +107,12 @@ func (m *Sidebar) navHeader() []list.Item {
 
 func (m *Sidebar) Init() tea.Cmd {
 	log.Println("sidebar init")
-	log.Println("sidebar set items")
-	return tea.Batch(m.nav.SetItems(m.navHeader()), getUserChannelsCmd(true))
+	return tea.Batch(
+		m.nav.SetItems(m.navHeader()),
+		getChannelsCmd(true),
+		getCurrentAccount(),
+		m.pfp.Init(),
+	)
 }
 
 func selectProfileCmd(fid uint64) tea.Cmd {
@@ -89,14 +123,17 @@ func selectProfileCmd(fid uint64) tea.Cmd {
 
 func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case []*api.Channel:
+	case *channelListMsg:
 		items := m.navHeader()
-		for _, c := range msg {
+		for _, c := range msg.channels {
 			items = append(items, &sidebarItem{name: c.Name, value: c.ParentURL, itype: "channel"})
 		}
 		return m, m.nav.SetItems(items)
 
 	case tea.KeyMsg:
+		if !m.active {
+			return m, nil
+		}
 		if msg.String() == "enter" {
 			currentItem := m.nav.SelectedItem().(*sidebarItem)
 			if currentItem.name == "profile" {
@@ -115,14 +152,44 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Sequence(m.app.SetFocus("feed"), getFeedCmd(&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: currentItem.value, Limit: 100}))
 			}
 		}
+	case *currentAccountMsg:
+		m.account = msg.account
+		return m, m.pfp.SetURL(m.account.PfpURL, false)
+
 	}
 
 	//update list size if window size changes
-	l, cmd := m.nav.Update(msg)
+	cmds := []tea.Cmd{}
+	l, ncmd := m.nav.Update(msg)
 	m.nav = &l
-	return m, cmd
+	cmds = append(cmds, ncmd)
+
+	pfp, pcmd := m.pfp.Update(msg)
+	m.pfp = pfp
+	cmds = append(cmds, pcmd)
+	return m, tea.Batch(cmds...)
 }
 func (m *Sidebar) View() string {
-	return lipgloss.NewStyle().BorderRight(true).BorderStyle(lipgloss.DoubleBorder()).Render(m.nav.View())
-	// return m.list.View()
+	if m.account == nil {
+		return navStyle.Render(m.nav.View())
+	}
+
+	accountStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder(), true, false, false).Align(lipgloss.Center, lipgloss.Center).Margin(0).Padding(0)
+
+	account := accountStyle.Render(
+		lipgloss.JoinHorizontal(lipgloss.Center,
+			m.pfp.View(),
+			lipgloss.JoinVertical(lipgloss.Left,
+				m.account.DisplayName,
+				fmt.Sprintf("@%s", m.account.Username),
+			),
+		),
+	)
+
+	return navStyle.Render(
+		lipgloss.JoinVertical(lipgloss.Top,
+			m.nav.View(),
+			account,
+		),
+	)
 }

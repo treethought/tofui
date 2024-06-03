@@ -75,3 +75,18 @@ func (db *DB) Delete(key []byte) error {
 		return txn.Delete(key)
 	})
 }
+
+func (db *DB) GetKeys(prefix []byte) ([][]byte, error) {
+	keys := make([][]byte, 0)
+	err := db.db.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+			k := item.KeyCopy(nil)
+			keys = append(keys, k)
+		}
+		return nil
+	})
+	return keys, err
+}

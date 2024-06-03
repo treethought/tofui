@@ -63,15 +63,35 @@ type channelListMsg struct {
 	activeOnly bool
 }
 
-func getUserChannelsCmd(activeOnly bool) tea.Cmd {
+func getUserChannels(activeOnly bool) tea.Msg {
+	fid := api.GetSigner().FID
+	channels, err := api.GetClient().GetUserChannels(fid, activeOnly, api.WithLimit(100))
+	if err != nil {
+		log.Println("error getting user channels: ", err)
+		return nil
+	}
+	return &channelListMsg{channels, activeOnly}
+}
+
+func getChannelsCmd(activeOnly bool) tea.Cmd {
 	return func() tea.Msg {
-		fid := api.GetSigner().FID
-		channels, err := api.GetClient().GetUserChannels(fid, activeOnly, api.WithLimit(100))
-		if err != nil {
-			log.Println("error getting user channels: ", err)
-			return nil
+		if activeOnly {
+			return getUserChannels(activeOnly)
 		}
-		return &channelListMsg{channels, activeOnly}
+		msg := &channelListMsg{}
+		ids, err := api.GetClient().GetCachedChannelIds()
+		if err != nil {
+			log.Println("error getting channel names: ", err)
+		}
+		for _, id := range ids {
+			channel, err := api.GetClient().GetChannelById(id)
+			if err != nil {
+				log.Println("error getting channel: ", err)
+				continue
+			}
+			msg.channels = append(msg.channels, channel)
+		}
+		return msg
 	}
 }
 
@@ -82,7 +102,7 @@ func (m *QuickSelect) SetSize(w, h int) {
 }
 
 func (m *QuickSelect) Init() tea.Cmd {
-	return tea.Batch(getUserChannelsCmd(false), func() tea.Msg { return tea.KeyCtrlQuestionMark })
+	return tea.Batch(getChannelsCmd(false), func() tea.Msg { return tea.KeyCtrlQuestionMark })
 }
 
 func (m *QuickSelect) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"fmt"
+	"log"
+
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -13,13 +16,18 @@ import (
 
 const confirmPrefix = "Publish cast? (y/n)"
 
-func postCastCmd(text string) tea.Cmd {
+type postResponseMsg struct {
+	err  error
+	resp *api.PostCastResponse
+}
+
+func postCastCmd(text, parent, channel string, parentAuthor uint64) tea.Cmd {
 	return func() tea.Msg {
-		resp, err := api.GetClient().PostCast(text)
+		resp, err := api.GetClient().PostCast(text, parent, channel, parentAuthor)
 		if err != nil {
-			return err
+			return &postResponseMsg{err: err}
 		}
-		return resp
+		return &postResponseMsg{resp: resp}
 	}
 }
 
@@ -50,14 +58,21 @@ var keys = keyMap{
 	),
 }
 
+type ctx struct {
+	channel      string
+	parent       string
+	parentAuthor uint64
+}
+
 type PublishInput struct {
 	keys        keyMap
 	help        help.Model
 	ta          textarea.Model
 	vp          viewport.Model
 	showConfirm bool
-	app         *App
+	active      bool
 	w, h        int
+	ctx         ctx
 }
 
 func NewPublishInput(app *App) *PublishInput {
@@ -70,11 +85,18 @@ func NewPublishInput(app *App) *PublishInput {
 	vp := viewport.New(0, 0)
 	vp.SetContent(ta.View())
 
-	return &PublishInput{ta: ta, app: app, vp: vp, keys: keys, help: help.New()}
+	return &PublishInput{ta: ta, vp: vp, keys: keys, help: help.New()}
 }
 
 func (m *PublishInput) Init() tea.Cmd {
 	return nil
+}
+
+func (m *PublishInput) Active() bool {
+	return m.active
+}
+func (m *PublishInput) SetActive(active bool) {
+	m.active = active
 }
 
 func (m *PublishInput) SetSize(w, h int) {
@@ -85,6 +107,13 @@ func (m *PublishInput) SetSize(w, h int) {
 	m.vp.Width = w
 	m.vp.Height = h
 }
+
+func (m *PublishInput) SetContext(parent, channel string, parentAuthor uint64) {
+	m.ctx.channel = channel
+	m.ctx.parent = parent
+	m.ctx.parentAuthor = parentAuthor
+}
+
 func (m *PublishInput) SetFocus(focus bool) {
 	if focus {
 		m.ta.Focus()
@@ -95,6 +124,21 @@ func (m *PublishInput) SetFocus(focus bool) {
 
 func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case *postResponseMsg:
+		if msg.err != nil {
+			log.Println("error posting cast: ", msg.err)
+			m.vp.SetContent(lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000")).Render("error posting cast!"))
+			return m, nil
+		}
+		if msg.resp == nil || !msg.resp.Success {
+			m.vp.SetContent(lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000")).Render("error posting cast!"))
+			return m, nil
+		}
+		log.Println("cast posted: ", msg.resp.Cast.Hash)
+		m.showConfirm = false
+		m.SetFocus(false)
+		m.SetActive(false)
+		return m, nil
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
 			return nil, tea.Quit
@@ -105,13 +149,13 @@ func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showConfirm = true
 			return m, nil
 		case key.Matches(msg, m.keys.Back):
-			m.app.showPublish = false
+			m.active = false
 			return nil, nil
 		}
 
 		if m.showConfirm {
 			if msg.String() == "y" || msg.String() == "Y" {
-				return m, postCastCmd(m.ta.Value())
+				return m, postCastCmd(m.ta.Value(), m.ctx.parent, m.ctx.channel, m.ctx.parentAuthor)
 			} else if msg.String() == "n" || msg.String() == "N" || msg.String() == "esc" {
 				m.showConfirm = false
 				return m, nil
@@ -143,7 +187,12 @@ func (m *PublishInput) View() string {
 
 	dialog := lipgloss.Place(10, 10,
 		lipgloss.Center, lipgloss.Center,
-		dialogBoxStyle.Width(m.w).Height(m.h).Render(content),
+		lipgloss.JoinVertical(lipgloss.Top,
+			dialogBoxStyle.Width(m.w).Height(m.h).Render(content),
+			fmt.Sprintf("channel: %s", m.ctx.channel),
+			fmt.Sprintf("parent: %s", m.ctx.parent),
+			fmt.Sprintf("parent_author: %s", m.ctx.parent),
+		),
 		// lipgloss.WithWhitespaceChars("猫咪"),
 		lipgloss.WithWhitespaceChars("~~"),
 		lipgloss.WithWhitespaceForeground(subtle),

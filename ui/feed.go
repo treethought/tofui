@@ -40,15 +40,8 @@ type FeedView struct {
 }
 
 func newTable() table.Model {
-	columns := []table.Column{
-		{Title: "channel", Width: 20},
-		{Title: "", Width: 20},
-		{Title: "user", Width: 20},
-		{Title: "cast", Width: 100},
-	}
 
 	t := table.New(
-		table.WithColumns(columns),
 		table.WithFocused(true),
 		table.WithKeyMap(table.KeyMap{
 			LineUp:     key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
@@ -101,27 +94,32 @@ func (m *FeedView) SetShowStats(show bool) {
 }
 
 func (m *FeedView) setTableConfig() {
-	columns := []table.Column{}
-	if m.showChannel {
-		columns = append(columns, table.Column{Title: "channel", Width: 20})
+	fw, _ := docStyle.GetFrameSize()
+	w := m.table.Width() - fw
+
+	if !m.showChannel && !m.showStats {
+		m.table.SetColumns([]table.Column{
+			{Title: "user", Width: int(float64(w) * 0.2)},
+			{Title: "cast", Width: int(float64(w) * 0.8)},
+		})
+		return
 	}
-	if m.showStats {
-		columns = append(columns, table.Column{Title: "", Width: 20})
-	}
-	columns = append(columns,
-		table.Column{Title: "user", Width: 20},
-		table.Column{Title: "cast", Width: 100},
-	)
-	m.table.SetColumns(columns)
+	m.table.SetColumns([]table.Column{
+		{Title: "channel", Width: int(float64(w) * 0.2)},
+		{Title: "", Width: int(float64(w) * 0.1)},
+		{Title: "user", Width: int(float64(w) * 0.2)},
+		{Title: "cast", Width: int(float64(w) * 0.5)},
+	})
+	return
+
 }
 
 func (m *FeedView) Init() tea.Cmd {
-	if len(m.items) > 0 {
-		return nil
-	}
-	m.loading.SetActive(true)
-	cmds := []tea.Cmd{
-		m.loading.Init(),
+	m.setTableConfig()
+	cmds := []tea.Cmd{}
+	if len(m.items) == 0 {
+		m.loading.SetActive(true)
+		cmds = append(cmds, m.loading.Init())
 	}
 
 	if m.req != nil {
@@ -183,16 +181,17 @@ func (m *FeedView) setItems(casts []*api.Cast) tea.Cmd {
 		rows = append(rows, ci.AsRow(m.showChannel, m.showStats))
 	}
 	m.table.SetRows(rows)
+	m.loading.SetActive(false)
 	return tea.Batch(cmds...)
 }
 
 func (m *FeedView) populateItems() tea.Cmd {
-	m.loading.SetActive(false)
 	rows := []table.Row{}
 	for _, i := range m.items {
 		rows = append(rows, i.AsRow(m.showChannel, m.showStats))
 	}
 	m.table.SetRows(rows)
+	m.loading.SetActive(false)
 	return nil
 }
 
@@ -210,12 +209,19 @@ func (m *FeedView) getCurrentItem() *CastFeedItem {
 	return m.items[row]
 }
 func (m *FeedView) SetSize(w, h int) {
-	m.table.SetWidth(w)
-	m.table.SetHeight(h)
+	docStyle = docStyle.MaxWidth(w)
+	x, y := docStyle.GetFrameSize()
+	m.table.SetWidth(w - x)
+	m.table.SetHeight(h - y)
+	m.setTableConfig()
+	m.loading.prog.Width = w - x - 22
 }
 
 func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
+	_, cmd := m.loading.Update(msg)
+
+	cmds = append(cmds, cmd)
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		if msg.String() == "enter" {
@@ -256,7 +262,6 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case *api.FeedResponse:
-		m.loading.SetActive(false)
 		return m, m.setItems(msg.Casts)
 	case reactMsg:
 		current := m.getCurrentItem()
@@ -268,9 +273,7 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.WindowSizeMsg:
-		h, v := docStyle.GetFrameSize()
-		m.table.SetWidth(msg.Width - h)
-		m.table.SetHeight(msg.Height - v)
+		m.SetSize(msg.Width, msg.Height)
 		return m, nil
 	}
 
@@ -300,6 +303,6 @@ func (m *FeedView) View() string {
 	if m.loading.IsActive() {
 		return m.loading.View()
 	}
-	return m.table.View()
+	return docStyle.Render(m.table.View())
 
 }

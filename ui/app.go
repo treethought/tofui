@@ -31,12 +31,10 @@ type App struct {
 	width           int
 	sidebar         *Sidebar
 	hideSidebar     bool
-	sidebarActive   bool
 	prev            string
-	QuickSelect     *QuickSelect
+	quickSelect     *QuickSelect
 	showQuickSelect bool
 	publish         *PublishInput
-	showPublish     bool
 }
 
 func NewApp() *App {
@@ -44,7 +42,7 @@ func NewApp() *App {
 		models: make(map[string]tea.Model),
 	}
 	a.sidebar = NewSidebar(a)
-	a.QuickSelect = NewQuickSelect(a)
+	a.quickSelect = NewQuickSelect(a)
 	a.publish = NewPublishInput(a)
 	return a
 }
@@ -73,23 +71,25 @@ func (a *App) SetFocus(name string) tea.Cmd {
 	if a.showQuickSelect {
 		a.showQuickSelect = false
 	}
-	if a.showPublish {
-		a.showPublish = false
+	if a.publish.Active() {
+		a.publish.SetActive(false)
 		a.publish.SetFocus(false)
 	}
 	if name == "" || name == a.focused {
 		return nil
 	}
-	a.prev = a.focused
+	// clear if we're back at feed
+	a.prev = ""
+	if name != "feed" {
+		a.prev = a.focused
+	}
 	m, ok := a.models[name]
 	if !ok {
 		log.Println("model not found: ", name)
 	}
 	a.focusedModel = m
 	a.focused = name
-	if a.sidebarActive {
-		a.sidebarActive = false
-	}
+	a.sidebar.SetActive(false)
 	return m.Init()
 }
 
@@ -111,7 +111,7 @@ func (a *App) FocusPrev() tea.Cmd {
 func (a *App) Init() tea.Cmd {
 	log.Println("a.Init()")
 	cmds := []tea.Cmd{}
-	cmds = append(cmds, a.sidebar.Init(), a.QuickSelect.Init(), a.publish.Init())
+	cmds = append(cmds, a.sidebar.Init(), a.quickSelect.Init(), a.publish.Init())
 	focus := a.GetFocused()
 	if focus != nil {
 		cmds = append(cmds, focus.Init())
@@ -140,10 +140,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case *channelListMsg:
 		if msg.activeOnly {
-			_, cmd := a.sidebar.Update(msg.channels)
+			_, cmd := a.sidebar.Update(msg)
 			return a, cmd
 		} else {
-			_, cmd := a.QuickSelect.Update(msg.channels)
+			_, cmd := a.quickSelect.Update(msg.channels)
 			return a, cmd
 		}
 	case *api.FeedResponse:
@@ -171,20 +171,20 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// substract the sidebar width from the window width
 		wx, wy := msg.Width, msg.Height
 
-		sw := wx / 6
-		a.sidebar.nav.SetSize(sw, wy)
+		sw := int(float64(wx) * 0.2)
+		a.sidebar.SetSize(sw, wy)
 
 		qw := wx - sw
-		qh := wy / 3
-		a.QuickSelect.SetSize(qw, qh)
+		qh := wy - 10
+		a.quickSelect.SetSize(qw, qh)
 
 		pw := wx - sw
-		py := wy / 3
+		py := wy - 10
 		a.publish.SetSize(pw, py)
 
 		childMsg := tea.WindowSizeMsg{
-			Width:  wx - pw - 1,
-			Height: wy - py - 1,
+			Width:  int(float64(wx) * 0.8),
+			Height: wy - 10,
 		}
 
 		for n, m := range a.models {
@@ -193,38 +193,47 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 	case tea.KeyMsg:
-		if a.showPublish {
+		if a.publish.Active() {
 			_, cmd := a.publish.Update(msg)
+			return a, cmd
+		}
+		if a.sidebar.Active() {
+			_, cmd := a.sidebar.Update(msg)
 			return a, cmd
 		}
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return a, tea.Quit
 		case "tab":
-			a.sidebarActive = !a.sidebarActive
+			if a.showQuickSelect {
+				_, cmd := a.quickSelect.Update(msg)
+				return a, cmd
+			}
+			a.sidebar.SetActive(!a.sidebar.Active())
 		case "esc":
 			return a, a.FocusPrev()
 		case "ctrl+k":
 			a.showQuickSelect = true
 		case "P":
-			a.showPublish = true
+			a.publish.SetActive(true)
 			a.publish.SetFocus(true)
 			return a, nil
 		}
+	case *currentAccountMsg:
+		_, cmd := a.sidebar.Update(msg)
+		return a, cmd
 	}
-	if a.showPublish {
+	if a.publish.Active() {
 		_, cmd := a.publish.Update(msg)
 		return a, cmd
 	}
 	if a.showQuickSelect {
-		q, cmd := a.QuickSelect.Update(msg)
-		a.QuickSelect = q.(*QuickSelect)
+		q, cmd := a.quickSelect.Update(msg)
+		a.quickSelect = q.(*QuickSelect)
 		return a, cmd
 	}
-	if a.sidebarActive {
-		_, cmd := a.sidebar.Update(msg)
-		return a, cmd
-	}
+	_, scmd := a.sidebar.Update(msg)
+	cmds = append(cmds, scmd)
 
 	current := a.GetFocused()
 	if current == nil {
@@ -243,11 +252,11 @@ func (a *App) View() string {
 	if focus == nil {
 		return "no focused model"
 	}
-	if a.showPublish {
+	if a.publish.Active() {
 		return a.publish.View()
 	}
 	if a.showQuickSelect {
-		return a.QuickSelect.View()
+		return a.quickSelect.View()
 	}
 	if a.hideSidebar {
 		return focus.View()

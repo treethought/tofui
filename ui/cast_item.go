@@ -101,7 +101,7 @@ func getCastChannelCmd(cast *api.Cast) tea.Cmd {
 		if cast.ParentURL == "" {
 			return nil
 		}
-		ch, err := api.GetClient().GetChannelByParentURL(cast.ParentURL)
+		ch, err := api.GetClient().GetChannelByParentUrl(cast.ParentURL)
 		if err != nil {
 			return channelInfoErrMsg{err, cast.Hash, cast.ParentURL}
 		}
@@ -173,9 +173,13 @@ func (m *CastFeedItem) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.channelURL = msg.parentURL
 	}
 
-	pfp, cmd := m.pfp.Update(msg)
-	m.pfp = pfp
-	cmds = append(cmds, cmd)
+	if m.pfp.Matches(msg) {
+		pfp, cmd := m.pfp.Update(msg)
+		m.pfp = pfp
+		return m, cmd
+
+	}
+
 	return m, tea.Batch(cmds...)
 }
 

@@ -65,7 +65,7 @@ type CastPayload struct {
 	Parent          string  `json:"parent"`
 	ChannelID       string  `json:"channel_id"`
 	Idem            string  `json:"idem"`
-	ParentAuthorFID int32   `json:"parent_author_fid"`
+	ParentAuthorFID uint64  `json:"parent_author_fid"`
 	Embeds          []Embed `json:"embeds"`
 }
 
@@ -74,14 +74,17 @@ type PostCastResponse struct {
 	Cast    Cast
 }
 
-func (c *Client) PostCast(text string) (*PostCastResponse, error) {
+func (c *Client) PostCast(text, parent, channel string, parent_fid uint64) (*PostCastResponse, error) {
 	s := GetSigner()
 	if s == nil {
 		return nil, errors.New("no signer found")
 	}
 	payload := CastPayload{
-		Text:       text,
-		SignerUUID: s.UUID,
+		Text:            text,
+		SignerUUID:      s.UUID,
+		Parent:          parent,
+		ChannelID:       channel,
+		ParentAuthorFID: parent_fid,
 	}
 	log.Println("posting cast: ", text)
 

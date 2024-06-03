@@ -254,6 +254,11 @@ func (m ImageModel) Init() tea.Cmd {
 	return nil
 }
 
+func (m *ImageModel) Clear() {
+	m.URL = ""
+	m.ImageString = ""
+}
+
 func (m *ImageModel) SetURL(url string, embed bool) tea.Cmd {
 	m.URL = url
 	return getImageCmd(m.Viewport.Width, url, embed)
@@ -310,6 +315,19 @@ func (m *ImageModel) SetBorderless(borderless bool) {
 	m.Borderless = borderless
 }
 
+func (m *ImageModel) Matches(msg tea.Msg) bool {
+	switch msg.(type) {
+	case convertImageToStringMsg:
+		return true
+	case downloadError:
+		return true
+	case decodeError:
+		return true
+	}
+	return false
+
+}
+
 // Update handles updating the UI of a code bubble.
 func (m *ImageModel) Update(msg tea.Msg) (*ImageModel, tea.Cmd) {
 	var (
@@ -320,8 +338,8 @@ func (m *ImageModel) Update(msg tea.Msg) (*ImageModel, tea.Cmd) {
 	case convertImageToStringMsg:
 		if msg.url == m.URL && msg.str != "" {
 			m.ImageString = lipgloss.NewStyle().
-				Width(m.Viewport.Width).
-				Height(m.Viewport.Height).
+				// Width(m.Viewport.Width).
+				// Height(m.Viewport.Height).
 				Render(msg.str)
 			m.Viewport.SetContent(m.ImageString)
 		}

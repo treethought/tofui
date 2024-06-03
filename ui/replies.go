@@ -68,13 +68,11 @@ func (m *RepliesView) SetSize(w, h int) {
 func (m *RepliesView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case *repliesMsg:
-		log.Println("replies msg")
 		if msg.err != nil {
 			log.Println("error getting convo: ", msg.err)
 			return m, nil
 		}
 		m.convo = msg.castConvo
-		log.Println("replies msg: ", len(msg.castConvo.DirectReplies))
 		return m, m.feed.setItems(msg.castConvo.DirectReplies)
 	}
 	_, cmd := m.feed.Update(msg)
