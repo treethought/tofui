@@ -257,6 +257,7 @@ func (m ImageModel) Init() tea.Cmd {
 func (m *ImageModel) Clear() {
 	m.URL = ""
 	m.ImageString = ""
+	m.Viewport.SetContent("")
 }
 
 func (m *ImageModel) SetURL(url string, embed bool) tea.Cmd {

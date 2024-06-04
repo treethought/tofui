@@ -50,7 +50,15 @@ func (m *RepliesView) Init() tea.Cmd {
 	return nil
 }
 
+func (m *RepliesView) Clear() {
+	m.feed.Clear()
+	m.opHash = ""
+	m.convo = nil
+	m.items = nil
+}
+
 func (m *RepliesView) SetOpHash(hash string) tea.Cmd {
+	m.Clear()
 	m.opHash = hash
 	m.convo = nil
 	return m.Init()
@@ -68,6 +76,7 @@ func (m *RepliesView) SetSize(w, h int) {
 func (m *RepliesView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case *repliesMsg:
+		m.Clear()
 		if msg.err != nil {
 			log.Println("error getting convo: ", msg.err)
 			return m, nil

@@ -10,33 +10,36 @@ import (
 	"github.com/treethought/castr/api"
 )
 
+var style = lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).Border(lipgloss.RoundedBorder(), true)
+
 type CastView struct {
 	cast    *api.Cast
 	img     *ImageModel
 	pfp     *ImageModel
 	replies *RepliesView
-	vp      viewport.Model
+	vp      *viewport.Model
 
 	pubReply *PublishInput
 }
 
 func NewCastView(cast *api.Cast) *CastView {
+	vp := viewport.New(0, 0)
 	c := &CastView{
 		cast:     cast,
 		pfp:      NewImage(false, true, special),
 		img:      NewImage(true, true, special),
 		replies:  NewRepliesView(),
-		vp:       viewport.New(0, 0),
+		vp:       &vp,
 		pubReply: NewPublishInput(nil),
 	}
 	return c
 }
 
 func (m *CastView) SetCast(cast *api.Cast) tea.Cmd {
+	m.replies.Clear()
 	m.img.Clear()
 	m.pfp.Clear()
 	m.cast = cast
-	m.pubReply.SetContext(cast.Hash, cast.ParentURL, cast.Author.FID)
 	return m.Init()
 }
 
@@ -44,12 +47,12 @@ func (m *CastView) Init() tea.Cmd {
 	if m.cast == nil {
 		return nil
 	}
-	m.vp.SetContent(CastContent(m.cast, 10))
 
 	cmds := []tea.Cmd{
 		m.pfp.SetURL(m.cast.Author.PfpURL, false),
 		m.pfp.SetSize(4, 4),
 		m.replies.SetOpHash(m.cast.Hash),
+		m.pubReply.SetContext(m.cast.Hash, m.cast.ParentURL, m.cast.Author.FID),
 	}
 	if len(m.cast.Embeds) > 0 {
 		cmds = append(cmds, m.img.SetURL(m.cast.Embeds[0].URL, true))
@@ -61,14 +64,25 @@ func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		cmds := []tea.Cmd{}
-		v, cmd := m.vp.Update(msg)
-		m.vp = v
-		cmds = append(cmds, cmd)
-		if m.img != nil {
-			cmds = append(cmds, m.img.SetSize(msg.Width/4, msg.Height/4))
-		}
-		m.replies.SetSize(msg.Width, msg.Height/2)
+
+		fx, fy := style.GetFrameSize()
+
+		w, h := msg.Width-fx, msg.Height-fy-6 // room for stats/header
+
+		cx, cy := w, h/2
+
+		m.vp.Width = cx
+		m.vp.Height = cy / 2
+
+		m.img.SetSize(cx/2, cy/2)
+
+		m.replies.SetSize(msg.Width, h/2)
+		m.pubReply.SetSize(msg.Width, msg.Height)
 		return m, tea.Batch(cmds...)
+
+	case *ctxInfoMsg:
+		_, cmd := m.pubReply.Update(msg)
+		return m, cmd
 
 	case tea.KeyMsg:
 		if m.pubReply.Active() {
@@ -87,19 +101,21 @@ func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	}
+	m.vp.SetContent(CastContent(m.cast, 10))
 	cmds := []tea.Cmd{}
-	v, vcmd := m.vp.Update(msg)
-	m.vp = v
-	cmds = append(cmds, vcmd)
+
+	_, rcmd := m.replies.Update(msg)
+	cmds = append(cmds, rcmd)
+
+	// v, vcmd := m.vp.Update(msg)
+	// m.vp = &v
+	// cmds = append(cmds, vcmd)
 
 	if m.img.Matches(msg) {
 		_, icmd := m.img.Update(msg)
 		_, pcmd := m.pfp.Update(msg)
 		return m, tea.Batch(icmd, pcmd)
 	}
-
-	_, rcmd := m.replies.Update(msg)
-	cmds = append(cmds, rcmd)
 
 	return m, tea.Batch(cmds...)
 }
@@ -108,12 +124,15 @@ func (m *CastView) View() string {
 	if m.pubReply.Active() {
 		return m.pubReply.View()
 	}
-	return lipgloss.JoinVertical(lipgloss.Top,
-		UsernameHeader(&m.cast.Author, m.pfp),
-		lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderBottom(true).Padding(0).Render(CastStats(m.cast, 10)),
-		CastContent(m.cast, 10),
-		m.vp.View(),
-		m.img.View(),
-		m.replies.View(),
+
+	return style.Render(
+		lipgloss.JoinVertical(lipgloss.Center,
+			UsernameHeader(&m.cast.Author, m.pfp),
+			lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderBottom(true).Padding(0).Render(CastStats(m.cast, 10)),
+			// CastContent(m.cast, 10),
+			m.vp.View(),
+			m.img.View(),
+			m.replies.View(),
+		),
 	)
 }

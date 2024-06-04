@@ -49,6 +49,10 @@ func (m *Loading) Init() tea.Cmd {
 	return nil
 }
 
+func (m *Loading) SetSize(w, h int) {
+	m.prog.Width = w
+}
+
 func (m *Loading) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
