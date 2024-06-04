@@ -35,6 +35,7 @@ type App struct {
 	quickSelect     *QuickSelect
 	showQuickSelect bool
 	publish         *PublishInput
+	statusLine      *StatusLine
 }
 
 func NewApp() *App {
@@ -44,6 +45,7 @@ func NewApp() *App {
 	a.sidebar = NewSidebar(a)
 	a.quickSelect = NewQuickSelect(a)
 	a.publish = NewPublishInput(a)
+	a.statusLine = NewStatusLine(a)
 	return a
 }
 
@@ -132,6 +134,8 @@ func (a *App) propagateEvent(msg tea.Msg) tea.Cmd {
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// log.Println("received msg type: ", reflect.TypeOf(msg))
 	var cmds []tea.Cmd
+	_, sbcmd := a.statusLine.Update(msg)
+	cmds = append(cmds, sbcmd)
 	switch msg := msg.(type) {
 	case FocusMsg:
 		cmd := a.SetFocus(msg.Name)
@@ -163,13 +167,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SelectCastMsg:
 		focusCmd := a.SetFocus("cast")
 		cmd := a.GetModel("cast").(*CastView).SetCast(msg.cast)
-		return a, tea.Batch(cmd, focusCmd)
+		return a, tea.Sequence(cmd, focusCmd)
 
 	case tea.WindowSizeMsg:
 		SetHeight(msg.Height)
 		SetWidth(msg.Width)
+
+		a.statusLine.SetSize(msg.Width, msg.Height)
+
 		// substract the sidebar width from the window width
-		wx, wy := msg.Width, msg.Height
+		wx, wy := msg.Width, msg.Height-1
+		a.width = wx
+		a.height = wy
 
 		sw := int(float64(wx) * 0.2)
 		a.sidebar.SetSize(sw, wy)
@@ -184,7 +193,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		childMsg := tea.WindowSizeMsg{
 			Width:  int(float64(wx) * 0.8),
-			Height: wy - 10,
+			Height: wy,
 		}
 
 		for n, m := range a.models {
@@ -261,7 +270,11 @@ func (a *App) View() string {
 	if a.hideSidebar {
 		return focus.View()
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, a.sidebar.View(), focus.View())
+	return lipgloss.JoinVertical(lipgloss.Top,
+		lipgloss.JoinHorizontal(lipgloss.Center, a.sidebar.View(), focus.View()),
+		a.statusLine.View(),
+	)
+
 }
 
 func UpdateChildren(msg tea.Msg, models ...tea.Model) tea.Cmd {

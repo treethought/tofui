@@ -21,6 +21,11 @@ type postResponseMsg struct {
 	resp *api.PostCastResponse
 }
 
+type ctxInfoMsg struct {
+	user    *api.User
+	channel *api.Channel
+}
+
 func postCastCmd(text, parent, channel string, parentAuthor uint64) tea.Cmd {
 	return func() tea.Msg {
 		resp, err := api.GetClient().PostCast(text, parent, channel, parentAuthor)
@@ -32,8 +37,9 @@ func postCastCmd(text, parent, channel string, parentAuthor uint64) tea.Cmd {
 }
 
 type keyMap struct {
-	Cast key.Binding
-	Back key.Binding
+	Cast          key.Binding
+	Back          key.Binding
+	ChooseChannel key.Binding
 }
 
 func (k keyMap) ShortHelp() []key.Binding {
@@ -62,6 +68,7 @@ type ctx struct {
 	channel      string
 	parent       string
 	parentAuthor uint64
+	parentUser   *api.User
 }
 
 type PublishInput struct {
@@ -108,10 +115,25 @@ func (m *PublishInput) SetSize(w, h int) {
 	m.vp.Height = h
 }
 
-func (m *PublishInput) SetContext(parent, channel string, parentAuthor uint64) {
-	m.ctx.channel = channel
-	m.ctx.parent = parent
-	m.ctx.parentAuthor = parentAuthor
+func (m *PublishInput) SetContext(parent, channel string, parentAuthor uint64) tea.Cmd {
+	return func() tea.Msg {
+		m.ctx.channel = channel
+		m.ctx.parent = parent
+		m.ctx.parentAuthor = parentAuthor
+		m.ctx.parentUser = nil
+		parentUser, err := api.GetClient().GetUserByFID(parentAuthor)
+		if err != nil {
+			log.Println("error getting parent author: ", err)
+			return nil
+		}
+		channel, err := api.GetClient().GetChannelByParentUrl(channel)
+		if err != nil {
+			log.Println("error getting channel: ", err)
+			return nil
+		}
+		log.Println("got ctx: ", channel.Name, parentUser.Username)
+		return &ctxInfoMsg{user: parentUser, channel: channel}
+	}
 }
 
 func (m *PublishInput) SetFocus(focus bool) {
@@ -124,6 +146,11 @@ func (m *PublishInput) SetFocus(focus bool) {
 
 func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case *ctxInfoMsg:
+		log.Println("got ctx msg: ", msg.channel.Name, msg.user.Username)
+		m.ctx.parentUser = msg.user
+		m.ctx.channel = msg.channel.Name
+		return m, nil
 	case *postResponseMsg:
 		if msg.err != nil {
 			log.Println("error posting cast: ", msg.err)
@@ -185,13 +212,21 @@ func (m *PublishInput) View() string {
 		)
 	}
 
-	dialog := lipgloss.Place(10, 10,
+	titleText := "publish cast"
+	if m.ctx.parentUser != nil {
+		titleText = fmt.Sprintf("reply to @%s", m.ctx.parentUser.Username)
+	} else if m.ctx.channel != "" {
+		titleText = fmt.Sprintf("publish cast to channel: /%s", m.ctx.channel)
+	}
+
+	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#874BFD")).BorderBottom(true).BorderStyle(lipgloss.NormalBorder())
+	title := titleStyle.Render(titleText)
+
+	dialog := lipgloss.Place(m.w/2, m.h/2,
 		lipgloss.Center, lipgloss.Center,
 		lipgloss.JoinVertical(lipgloss.Top,
+			title,
 			dialogBoxStyle.Width(m.w).Height(m.h).Render(content),
-			fmt.Sprintf("channel: %s", m.ctx.channel),
-			fmt.Sprintf("parent: %s", m.ctx.parent),
-			fmt.Sprintf("parent_author: %s", m.ctx.parent),
 		),
 		// lipgloss.WithWhitespaceChars("猫咪"),
 		lipgloss.WithWhitespaceChars("~~"),
