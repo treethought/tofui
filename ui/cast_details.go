@@ -36,6 +36,8 @@ func NewCastView(cast *api.Cast) *CastView {
 }
 
 func (m *CastView) SetCast(cast *api.Cast) tea.Cmd {
+	m.pubReply.SetFocus(false)
+	m.pubReply.SetActive(false)
 	m.replies.Clear()
 	m.img.Clear()
 	m.pfp.Clear()
@@ -77,7 +79,8 @@ func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.img.SetSize(cx/2, cy/2)
 
 		m.replies.SetSize(msg.Width, h/2)
-		m.pubReply.SetSize(msg.Width, msg.Height)
+
+		m.pubReply.SetSize(msg.Width, msg.Height-10)
 		return m, tea.Batch(cmds...)
 
 	case *ctxInfoMsg:

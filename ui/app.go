@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"log"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -8,6 +9,16 @@ import (
 
 	"github.com/treethought/castr/api"
 )
+
+type navNameMsg struct {
+	name string
+}
+
+func navNameCmd(name string) tea.Cmd {
+	return func() tea.Msg {
+		return navNameMsg{name: name}
+	}
+}
 
 type FocusMsg struct {
 	Name string
@@ -27,6 +38,7 @@ type App struct {
 	models          map[string]tea.Model
 	focusedModel    tea.Model
 	focused         string
+	navname         string
 	height          int
 	width           int
 	sidebar         *Sidebar
@@ -68,7 +80,10 @@ func (a *App) GetModel(name string) tea.Model {
 
 func (a *App) Register(name string, model tea.Model) {
 	a.models[name] = model
-	log.Println("registered", name)
+}
+
+func (a *App) SetNavName(name string) {
+	a.navname = name
 }
 
 func (a *App) SetFocus(name string) tea.Cmd {
@@ -116,7 +131,6 @@ func (a *App) FocusPrev() tea.Cmd {
 }
 
 func (a *App) Init() tea.Cmd {
-	log.Println("a.Init()")
 	cmds := []tea.Cmd{}
 	cmds = append(cmds, a.sidebar.Init(), a.quickSelect.Init(), a.publish.Init())
 	focus := a.GetFocused()
@@ -142,6 +156,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	_, sbcmd := a.statusLine.Update(msg)
 	cmds = append(cmds, sbcmd)
 	switch msg := msg.(type) {
+	case navNameMsg:
+		a.SetNavName(msg.name)
+		return a, nil
 	case FocusMsg:
 		cmd := a.SetFocus(msg.Name)
 		if cmd != nil {
@@ -166,10 +183,17 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		focusCmd := a.SetFocus("feed")
 		return a, tea.Batch(feed.setItems(msg.Casts), focusCmd)
 	case SelectProfileMsg:
+		a.SetNavName("profile")
 		focusCmd := a.SetFocus("profile")
 		cmd := a.GetModel("profile").(*Profile).SetFID(msg.fid)
 		return a, tea.Batch(focusCmd, cmd)
 	case SelectCastMsg:
+		nav := fmt.Sprintf("cast by @%s", msg.cast.Author.Username)
+		if msg.cast.ParentHash != "" {
+			nav = fmt.Sprintf("reply by @%s", msg.cast.Author.Username)
+		}
+
+		a.SetNavName(nav)
 		focusCmd := a.SetFocus("cast")
 		cmd := a.GetModel("cast").(*CastView).SetCast(msg.cast)
 		return a, tea.Sequence(cmd, focusCmd)
@@ -216,7 +240,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, cmd
 		}
 
-		cmd := GlobalKeyMap.HandleMsg(a, msg)
+		cmd := NavKeyMap.HandleMsg(a, msg)
 		if cmd != nil {
 			return a, cmd
 		}
@@ -228,20 +252,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return a, tea.Quit
-			// case "tab":
-			// 	if a.showQuickSelect {
-			// 		_, cmd := a.quickSelect.Update(msg)
-			// 		return a, cmd
-			// 	}
-			// 	a.sidebar.SetActive(!a.sidebar.Active())
-			// case "esc":
-			// 	return a, a.FocusPrev()
-			// case "ctrl+k":
-			// 	a.showQuickSelect = true
-			// case "P":
-			// 	a.publish.SetActive(true)
-			// 	a.publish.SetFocus(true)
-			// 	return a, nil
 		}
 	case *currentAccountMsg:
 		_, cmd := a.sidebar.Update(msg)
@@ -282,20 +292,23 @@ func (a *App) View() string {
 	if focus == nil {
 		return "no focused model"
 	}
+	main := focus.View()
+	side := a.sidebar.View()
+
 	if a.publish.Active() {
-		return a.publish.View()
+		main = a.publish.View()
 	}
 	if a.showQuickSelect {
-		return a.quickSelect.View()
+		main = a.quickSelect.View()
 	}
 	if a.hideSidebar {
 		return focus.View()
 	}
 	if a.help.IsFull() {
-		return a.help.View()
+		main = a.help.View()
 	}
 	return lipgloss.JoinVertical(lipgloss.Top,
-		lipgloss.JoinHorizontal(lipgloss.Center, a.sidebar.View(), focus.View()),
+		lipgloss.JoinHorizontal(lipgloss.Center, side, main),
 		a.statusLine.View(),
 	)
 

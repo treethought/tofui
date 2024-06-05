@@ -17,7 +17,7 @@ func NewStatusLine(app *App) *StatusLine {
 	sb := statusbar.New(
 		statusbar.ColorConfig{
 			Foreground: lipgloss.AdaptiveColor{Dark: "#ffffff", Light: "#ffffff"},
-			Background: lipgloss.AdaptiveColor{Light: "#F25D94", Dark: "#F25D94"},
+			Background: lipgloss.AdaptiveColor{Light: "#F25D94", Dark: "#483285"},
 		},
 		statusbar.ColorConfig{
 			// Foreground: lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#ffffff"},
@@ -50,7 +50,7 @@ func (m *StatusLine) Init() tea.Cmd {
 }
 
 func (m *StatusLine) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	m.sb.SetContent(m.app.focused, m.help.ShortView(), "", "")
+	m.sb.SetContent(m.app.navname, "", "", m.help.ShortView())
 	_, cmd := m.sb.Update(msg)
 	return m, cmd
 }

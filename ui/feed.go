@@ -222,6 +222,65 @@ func (m *FeedView) SetSize(w, h int) {
 	m.loading.SetSize(lw, h)
 }
 
+func (m *FeedView) SelectCurrentItem() tea.Cmd {
+	current := m.getCurrentItem()
+	if current == nil {
+		return nil
+	}
+	return selectCast(current.cast)
+}
+
+func (m *FeedView) OpenCurrentItem() tea.Cmd {
+	current := m.getCurrentItem()
+	if current == nil {
+		return nil
+	}
+	return OpenURL(fmt.Sprintf("https://warpcast.com/%s/%s", current.cast.Author.Username, current.cast.Hash))
+}
+func (m *FeedView) ViewCurrentProfile() tea.Cmd {
+	current := m.getCurrentItem()
+	if current == nil {
+		return nil
+	}
+	userFid := current.cast.Author.FID
+	return func() tea.Msg {
+		return SelectProfileMsg{fid: userFid}
+	}
+}
+
+func (m *FeedView) ViewCurrentChannel() tea.Cmd {
+	current := m.getCurrentItem()
+	if current == nil {
+		return nil
+	}
+	if current.cast.ParentURL == "" {
+		return nil
+	}
+	m.Clear()
+
+	cmds := []tea.Cmd{}
+	if c, err := api.GetClient().GetChannelByParentUrl(current.cast.ParentURL); err == nil {
+		cmds = append(cmds, navNameCmd(fmt.Sprintf("channel: %s", c.Name)))
+	}
+	cmds = append(cmds,
+		focusCmd("feed"),
+		getFeedCmd(&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: current.cast.ParentURL, Limit: 100}),
+	)
+
+	return tea.Sequence(cmds...)
+}
+
+func (m *FeedView) LikeCurrentItem() tea.Cmd {
+	current := m.getCurrentItem()
+	if current == nil {
+		return nil
+	}
+	if current.cast.Hash == "" {
+		return nil
+	}
+	return likeCastCmd(current.cast)
+}
+
 func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	_, cmd := m.loading.Update(msg)
@@ -229,37 +288,8 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds = append(cmds, cmd)
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if msg.String() == "enter" {
-			current := m.getCurrentItem()
-			return m, selectCast(current.cast)
-		}
-
-		if msg.String() == "o" {
-			current := m.getCurrentItem()
-			cast := current.cast
-			return m, OpenURL(fmt.Sprintf("https://warpcast.com/%s/%s", cast.Author.Username, cast.Hash))
-		}
-		if msg.String() == "p" {
-			current := m.getCurrentItem()
-			userFid := current.cast.Author.FID
-			return m, func() tea.Msg {
-				return SelectProfileMsg{fid: userFid}
-			}
-		}
-		if msg.String() == "c" {
-			current := m.getCurrentItem()
-			if current.cast.ParentURL == "" {
-				return m, nil
-			}
-			m.Clear()
-			return m, tea.Sequence(focusCmd("feed"), getFeedCmd(&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: current.cast.ParentURL, Limit: 100}))
-		}
-		if msg.String() == "l" {
-			current := m.getCurrentItem()
-			if current.cast.Hash == "" {
-				return m, nil
-			}
-			return m, likeCastCmd(current.cast)
+		if cmd := FeedKeyMap.HandleMsg(m, msg); cmd != nil {
+			return m, cmd
 		}
 
 	case loadTickMsg:

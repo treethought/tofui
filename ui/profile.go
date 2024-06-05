@@ -75,18 +75,22 @@ func (m *Profile) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		x, y := msg.Width, msg.Height
-		fx := int(float64(x) * 0.1)
-		fy := int(float64(y) * 0.1)
-		m.pfp.SetSize(fx, fy)
-		m.feed.SetSize(x, y)
+		m.pfp.SetSize(4, 4)
+
+		// TODO use size of header/stats
+		fx := int(float64(x) * 0.6)
+		fy := int(float64(y) * 0.6)
+		m.feed.SetSize(fx, fy)
 		return m, nil
 
 	case ProfileMsg:
-		log.Println("profile msg", msg)
 		if msg.user != nil {
-			log.Println("got user by fid: ", msg.fid, msg.user.Username)
 			m.user = msg.user
-			return m, tea.Batch(m.pfp.SetURL(m.user.PfpURL, false), m.pfp.SetSize(4, 4))
+			return m, tea.Batch(
+				m.pfp.SetURL(m.user.PfpURL, false),
+				m.pfp.SetSize(4, 4),
+				navNameCmd(fmt.Sprintf("profile: @%s", m.user.Username)),
+			)
 		}
 		return m, nil
 		// cmd := m.pfp.SetURL(m.user.PfpURL, false)

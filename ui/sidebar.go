@@ -149,6 +149,7 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Sequence(m.app.SetFocus("feed"), getFeedCmd(DefaultFeedParams()))
 			}
 			if currentItem.itype == "channel" {
+				m.app.SetNavName(fmt.Sprintf("channel: %s", currentItem.name))
 				return m, tea.Sequence(m.app.SetFocus("feed"), getFeedCmd(&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: currentItem.value, Limit: 100}))
 			}
 		}
@@ -174,7 +175,7 @@ func (m *Sidebar) View() string {
 		return navStyle.Render(m.nav.View())
 	}
 
-	accountStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder(), true, false, false).Align(lipgloss.Center, lipgloss.Center).Margin(0).Padding(0)
+	accountStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder(), true, false, true).Align(lipgloss.Center, lipgloss.Center).Margin(0).Padding(0)
 
 	account := accountStyle.Render(
 		lipgloss.JoinHorizontal(lipgloss.Center,

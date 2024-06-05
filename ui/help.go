@@ -34,11 +34,12 @@ func (m *HelpView) SetFull(full bool) {
 		m.vp.SetContent(m.h.FullHelpView(GlobalKeyMap.FullHelp()))
 		return
 	}
-	m.vp.SetContent(m.h.ShortHelpView(GlobalKeyMap.ShortHelp()))
+	hv := GlobalKeyMap.ShortHelp()
+	m.vp.SetContent(m.h.ShortHelpView(hv))
 }
 
 func (m *HelpView) Init() tea.Cmd {
-	m.vp.SetContent(m.h.ShortHelpView(GlobalKeyMap.ShortHelp()))
+	m.SetFull(false)
 	return nil
 }
 
@@ -49,7 +50,8 @@ func (m *HelpView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *HelpView) ShortView() string {
-	return m.h.ShortHelpView(GlobalKeyMap.ShortHelp())
+	hv := GlobalKeyMap.ShortHelp()
+	return m.h.ShortHelpView(hv)
 }
 
 func (m *HelpView) View() string {
