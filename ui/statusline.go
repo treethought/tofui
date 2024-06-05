@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"github.com/charmbracelet/bubbles/help"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mistakenelf/teacup/statusbar"
@@ -10,7 +9,8 @@ import (
 type StatusLine struct {
 	app  *App
 	sb   statusbar.Model
-	help help.Model
+	help *HelpView
+	full bool
 }
 
 func NewStatusLine(app *App) *StatusLine {
@@ -35,7 +35,8 @@ func NewStatusLine(app *App) *StatusLine {
 	return &StatusLine{
 		sb:   sb,
 		app:  app,
-		help: help.New(),
+		help: NewHelpView(),
+		full: false,
 	}
 }
 
@@ -49,7 +50,7 @@ func (m *StatusLine) Init() tea.Cmd {
 }
 
 func (m *StatusLine) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	m.sb.SetContent(m.app.focused, m.help.ShortHelpView(DefaultKeyMap.ShortHelp()), "", "")
+	m.sb.SetContent(m.app.focused, m.help.ShortView(), "", "")
 	_, cmd := m.sb.Update(msg)
 	return m, cmd
 }

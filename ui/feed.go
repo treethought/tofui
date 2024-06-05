@@ -217,7 +217,9 @@ func (m *FeedView) SetSize(w, h int) {
 	m.table.SetWidth(w - x)
 	m.table.SetHeight(h - y)
 	m.setTableConfig()
-	m.loading.prog.Width = w - x - 22
+
+	lw := int(float64(w) * 0.2)
+	m.loading.SetSize(lw, h)
 }
 
 func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

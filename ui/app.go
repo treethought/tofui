@@ -36,6 +36,7 @@ type App struct {
 	showQuickSelect bool
 	publish         *PublishInput
 	statusLine      *StatusLine
+	help            *HelpView
 }
 
 func NewApp() *App {
@@ -46,6 +47,7 @@ func NewApp() *App {
 	a.quickSelect = NewQuickSelect(a)
 	a.publish = NewPublishInput(a)
 	a.statusLine = NewStatusLine(a)
+	a.help = NewHelpView()
 	return a
 }
 
@@ -100,6 +102,9 @@ func (a *App) GetFocused() tea.Model {
 }
 
 func (a *App) FocusPrev() tea.Cmd {
+	if a.help.IsFull() {
+		a.help.SetFull(false)
+	}
 	prev := a.GetModel(a.prev)
 	if a.prev == "" || prev == nil {
 		return a.SetFocus("feed")
@@ -191,6 +196,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		py := wy - 10
 		a.publish.SetSize(pw, py)
 
+		hw := wx - sw
+		hy := wy - 10
+		a.help.SetSize(hw, hy)
+
 		childMsg := tea.WindowSizeMsg{
 			Width:  int(float64(wx) * 0.8),
 			Height: wy,
@@ -206,6 +215,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			_, cmd := a.publish.Update(msg)
 			return a, cmd
 		}
+
+		cmd := GlobalKeyMap.HandleMsg(a, msg)
+		if cmd != nil {
+			return a, cmd
+		}
+
 		if a.sidebar.Active() {
 			_, cmd := a.sidebar.Update(msg)
 			return a, cmd
@@ -213,20 +228,20 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return a, tea.Quit
-		case "tab":
-			if a.showQuickSelect {
-				_, cmd := a.quickSelect.Update(msg)
-				return a, cmd
-			}
-			a.sidebar.SetActive(!a.sidebar.Active())
-		case "esc":
-			return a, a.FocusPrev()
-		case "ctrl+k":
-			a.showQuickSelect = true
-		case "P":
-			a.publish.SetActive(true)
-			a.publish.SetFocus(true)
-			return a, nil
+			// case "tab":
+			// 	if a.showQuickSelect {
+			// 		_, cmd := a.quickSelect.Update(msg)
+			// 		return a, cmd
+			// 	}
+			// 	a.sidebar.SetActive(!a.sidebar.Active())
+			// case "esc":
+			// 	return a, a.FocusPrev()
+			// case "ctrl+k":
+			// 	a.showQuickSelect = true
+			// case "P":
+			// 	a.publish.SetActive(true)
+			// 	a.publish.SetFocus(true)
+			// 	return a, nil
 		}
 	case *currentAccountMsg:
 		_, cmd := a.sidebar.Update(msg)
@@ -241,6 +256,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.quickSelect = q.(*QuickSelect)
 		return a, cmd
 	}
+
+	if a.help.IsFull() {
+		_, cmd := a.help.Update(msg)
+		return a, cmd
+	}
+
 	_, scmd := a.sidebar.Update(msg)
 	cmds = append(cmds, scmd)
 
@@ -269,6 +290,9 @@ func (a *App) View() string {
 	}
 	if a.hideSidebar {
 		return focus.View()
+	}
+	if a.help.IsFull() {
+		return a.help.View()
 	}
 	return lipgloss.JoinVertical(lipgloss.Top,
 		lipgloss.JoinHorizontal(lipgloss.Center, a.sidebar.View(), focus.View()),

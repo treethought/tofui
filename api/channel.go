@@ -39,7 +39,6 @@ type Channel struct {
 
 func cacheChannels(channels []*Channel) {
 	for _, ch := range channels {
-    log.Println("caching channel: ", ch.ID)
 		key := fmt.Sprintf("channel:%s", ch.ParentURL)
 		mkey := fmt.Sprintf("channelurl:%s", ch.ID)
 		_ = db.GetDB().Set([]byte(mkey), []byte(ch.ParentURL))
