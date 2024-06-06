@@ -170,6 +170,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if cmd != nil {
 			return a, cmd
 		}
+	case *postResponseMsg:
+		_, cmd := a.publish.Update(msg)
+		return a, tea.Sequence(cmd, a.FocusPrev())
 	case *channelListMsg:
 		if msg.activeOnly {
 			_, cmd := a.sidebar.Update(msg)

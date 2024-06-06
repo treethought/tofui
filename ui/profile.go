@@ -78,7 +78,7 @@ func (m *Profile) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pfp.SetSize(4, 4)
 
 		// TODO use size of header/stats
-		fx := int(float64(x) * 0.6)
+		fx := x
 		fy := int(float64(y) * 0.6)
 		m.feed.SetSize(fx, fy)
 		return m, nil

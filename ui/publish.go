@@ -74,8 +74,8 @@ type ctx struct {
 type PublishInput struct {
 	keys        keyMap
 	help        help.Model
-	ta          textarea.Model
-	vp          viewport.Model
+	ta          *textarea.Model
+	vp          *viewport.Model
 	showConfirm bool
 	active      bool
 	w, h        int
@@ -92,7 +92,7 @@ func NewPublishInput(app *App) *PublishInput {
 	vp := viewport.New(0, 0)
 	vp.SetContent(ta.View())
 
-	return &PublishInput{ta: ta, vp: vp, keys: keys, help: help.New()}
+	return &PublishInput{ta: &ta, vp: &vp, keys: keys, help: help.New()}
 }
 
 func (m *PublishInput) Init() tea.Cmd {
@@ -143,6 +143,12 @@ func (m *PublishInput) SetFocus(focus bool) {
 	}
 	m.ta.Blur()
 }
+func (m *PublishInput) Clear() {
+	m.ta.Reset()
+	m.vp.SetContent(m.ta.View())
+	m.showConfirm = false
+	m.SetFocus(false)
+}
 
 func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -162,8 +168,7 @@ func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		log.Println("cast posted: ", msg.resp.Cast.Hash)
-		m.showConfirm = false
-		m.SetFocus(false)
+		m.Clear()
 		m.SetActive(false)
 		return m, nil
 	case tea.KeyMsg:
@@ -190,8 +195,8 @@ func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	var cmd tea.Cmd
-	m.ta, cmd = m.ta.Update(msg)
+	ta, cmd := m.ta.Update(msg)
+	m.ta = &ta
 	return m, cmd
 }
 
