@@ -137,6 +137,7 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "enter" {
 			currentItem := m.nav.SelectedItem().(*sidebarItem)
 			if currentItem.name == "profile" {
+				m.SetActive(false)
 				log.Println("profile selected")
 				fid := api.GetSigner().FID
 				if fid == 0 {
@@ -145,10 +146,12 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Sequence(m.app.SetFocus("profile"), selectProfileCmd(fid))
 			}
 			if currentItem.name == "feed" {
+				m.SetActive(false)
 				log.Println("feed selected")
 				return m, tea.Sequence(m.app.SetFocus("feed"), getFeedCmd(DefaultFeedParams()))
 			}
 			if currentItem.itype == "channel" {
+				m.SetActive(false)
 				m.app.SetNavName(fmt.Sprintf("channel: %s", currentItem.name))
 				return m, tea.Sequence(m.app.SetFocus("feed"), getFeedCmd(&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: currentItem.value, Limit: 100}))
 			}

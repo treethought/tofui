@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"log"
+
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -77,11 +79,12 @@ var FeedKeyMap = feedKeymap{
 type navKeymap struct {
 	Feed key.Binding
 
-	Publish     key.Binding
-	QuickSelect key.Binding
-	Help        key.Binding
-	ToggleBar   key.Binding
-	Previous    key.Binding
+	Publish                 key.Binding
+	QuickSelect             key.Binding
+	Help                    key.Binding
+	ToggleSidebarFocus      key.Binding
+	ToggleSidebarVisibility key.Binding
+	Previous                key.Binding
 }
 
 func (k navKeymap) ShortHelp() []key.Binding {
@@ -97,7 +100,8 @@ func (k navKeymap) All() []key.Binding {
 		k.Feed, k.QuickSelect,
 		k.Publish,
 		k.Previous,
-		k.Help, k.ToggleBar,
+		k.Help,
+		k.ToggleSidebarFocus, k.ToggleSidebarVisibility,
 	}
 }
 
@@ -118,9 +122,13 @@ var NavKeyMap = navKeymap{
 		key.WithKeys("?"),
 		key.WithHelp("?", "help"),
 	),
-	ToggleBar: key.NewBinding(
+	ToggleSidebarFocus: key.NewBinding(
 		key.WithKeys("tab"),
-		key.WithHelp("tab", "toggle sidebar"),
+		key.WithHelp("tab", "toggle sidebar focus"),
+	),
+	ToggleSidebarVisibility: key.NewBinding(
+		key.WithKeys("shift+tab"),
+		key.WithHelp("shift+tab", "toggle sidebar focus"),
 	),
 	Previous: key.NewBinding(
 		key.WithKeys("esc"),
@@ -157,10 +165,23 @@ func (k navKeymap) HandleMsg(a *App, msg tea.KeyMsg) tea.Cmd {
 	case key.Matches(msg, k.Previous):
 		return a.FocusPrev()
 
-	case key.Matches(msg, k.ToggleBar):
+	case key.Matches(msg, k.ToggleSidebarVisibility):
+		if a.showSidebar {
+			a.showSidebar = false
+			a.sidebar.SetActive(false)
+			return noOp()
+		}
+		a.showSidebar = true
+		a.sidebar.SetActive(true)
+		return noOp()
+
+	case key.Matches(msg, k.ToggleSidebarFocus):
 		if a.showQuickSelect {
 			_, cmd := a.quickSelect.Update(msg)
 			return cmd
+		}
+		if !a.showSidebar {
+			return nil
 		}
 		a.sidebar.SetActive(!a.sidebar.Active())
 	}

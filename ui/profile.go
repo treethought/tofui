@@ -109,7 +109,7 @@ func (m *Profile) View() string {
 	//   UserBio(m.user),
 	//   )
 
-	return lipgloss.JoinVertical(lipgloss.Left,
+	return lipgloss.JoinVertical(lipgloss.Center,
 		UsernameHeader(m.user, m.pfp),
 		UserBio(m.user),
 		m.feed.View(),

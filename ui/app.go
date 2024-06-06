@@ -42,8 +42,9 @@ type App struct {
 	height          int
 	width           int
 	sidebar         *Sidebar
-	hideSidebar     bool
+	showSidebar     bool
 	prev            string
+	prevName        string
 	quickSelect     *QuickSelect
 	showQuickSelect bool
 	publish         *PublishInput
@@ -53,7 +54,8 @@ type App struct {
 
 func NewApp() *App {
 	a := &App{
-		models: make(map[string]tea.Model),
+		models:      make(map[string]tea.Model),
+		showSidebar: true,
 	}
 	a.sidebar = NewSidebar(a)
 	a.quickSelect = NewQuickSelect(a)
@@ -83,6 +85,7 @@ func (a *App) Register(name string, model tea.Model) {
 }
 
 func (a *App) SetNavName(name string) {
+	a.prevName = a.navname
 	a.navname = name
 }
 
@@ -122,11 +125,14 @@ func (a *App) FocusPrev() tea.Cmd {
 	}
 	prev := a.GetModel(a.prev)
 	if a.prev == "" || prev == nil {
+		a.SetNavName("feed")
 		return a.SetFocus("feed")
 	}
 	if m := a.GetModel(a.prev); m != nil {
+		a.SetNavName(a.prevName)
 		return a.SetFocus(a.prev)
 	}
+	a.SetNavName("feed")
 	return a.SetFocus("feed")
 }
 
@@ -183,7 +189,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		focusCmd := a.SetFocus("feed")
 		return a, tea.Batch(feed.setItems(msg.Casts), focusCmd)
 	case SelectProfileMsg:
-		a.SetNavName("profile")
 		focusCmd := a.SetFocus("profile")
 		cmd := a.GetModel("profile").(*Profile).SetFID(msg.fid)
 		return a, tea.Batch(focusCmd, cmd)
@@ -245,10 +250,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, cmd
 		}
 
-		if a.sidebar.Active() {
-			_, cmd := a.sidebar.Update(msg)
-			return a, cmd
-		}
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return a, tea.Quit
@@ -272,8 +273,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, cmd
 	}
 
-	_, scmd := a.sidebar.Update(msg)
-	cmds = append(cmds, scmd)
+	if a.sidebar.Active() {
+		_, cmd := a.sidebar.Update(msg)
+		return a, cmd
+	}
 
 	current := a.GetFocused()
 	if current == nil {
@@ -301,12 +304,14 @@ func (a *App) View() string {
 	if a.showQuickSelect {
 		main = a.quickSelect.View()
 	}
-	if a.hideSidebar {
+	if !a.showSidebar {
 		return focus.View()
 	}
+
 	if a.help.IsFull() {
 		main = a.help.View()
 	}
+
 	return lipgloss.JoinVertical(lipgloss.Top,
 		lipgloss.JoinHorizontal(lipgloss.Center, side, main),
 		a.statusLine.View(),
