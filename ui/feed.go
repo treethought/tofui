@@ -128,9 +128,11 @@ func (m *FeedView) Init() tea.Cmd {
 }
 
 func (m *FeedView) Clear() {
+	m.loading.SetActive(true)
 	m.items = nil
 	m.req = nil
 	m.table.SetRows([]table.Row{})
+	m.setItems(nil)
 }
 
 func likeCastCmd(cast *api.Cast) tea.Cmd {
@@ -190,6 +192,7 @@ func (m *FeedView) populateItems() tea.Cmd {
 	for _, i := range m.items {
 		rows = append(rows, i.AsRow(m.showChannel, m.showStats))
 	}
+
 	if len(rows) > 0 {
 		m.loading.SetActive(false)
 	}

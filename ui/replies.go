@@ -40,13 +40,6 @@ func NewRepliesView() *RepliesView {
 }
 
 func (m *RepliesView) Init() tea.Cmd {
-	log.Println("replies init")
-	if m.convo != nil && len(m.convo.DirectReplies) > 0 {
-		return nil
-	}
-	if m.opHash != "" {
-		return getConvoCmd(m.opHash)
-	}
 	return nil
 }
 
@@ -60,13 +53,7 @@ func (m *RepliesView) Clear() {
 func (m *RepliesView) SetOpHash(hash string) tea.Cmd {
 	m.Clear()
 	m.opHash = hash
-	m.convo = nil
-	return m.Init()
-}
-
-func (m *RepliesView) setItems(convo *api.Cast) tea.Cmd {
-	log.Println("replies set items")
-	return m.feed.setItems(convo.DirectReplies)
+	return getConvoCmd(hash)
 }
 
 func (m *RepliesView) SetSize(w, h int) {
@@ -76,11 +63,11 @@ func (m *RepliesView) SetSize(w, h int) {
 func (m *RepliesView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case *repliesMsg:
-		m.Clear()
 		if msg.err != nil {
 			log.Println("error getting convo: ", msg.err)
 			return m, nil
 		}
+		m.Clear()
 		m.convo = msg.castConvo
 		return m, m.feed.setItems(msg.castConvo.DirectReplies)
 	}

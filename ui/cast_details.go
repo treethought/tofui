@@ -35,31 +35,32 @@ func NewCastView(cast *api.Cast) *CastView {
 	return c
 }
 
-func (m *CastView) SetCast(cast *api.Cast) tea.Cmd {
+func (m *CastView) Clear() {
+	m.cast = nil
 	m.pubReply.SetFocus(false)
 	m.pubReply.SetActive(false)
 	m.replies.Clear()
 	m.img.Clear()
 	m.pfp.Clear()
-	m.cast = cast
-	return m.Init()
 }
 
-func (m *CastView) Init() tea.Cmd {
-	if m.cast == nil {
-		return nil
-	}
-
+func (m *CastView) SetCast(cast *api.Cast) tea.Cmd {
+	m.Clear()
+	m.cast = cast
 	cmds := []tea.Cmd{
+		m.replies.SetOpHash(m.cast.Hash),
 		m.pfp.SetURL(m.cast.Author.PfpURL, false),
 		m.pfp.SetSize(4, 4),
-		m.replies.SetOpHash(m.cast.Hash),
 		m.pubReply.SetContext(m.cast.Hash, m.cast.ParentURL, m.cast.Author.FID),
 	}
 	if len(m.cast.Embeds) > 0 {
 		cmds = append(cmds, m.img.SetURL(m.cast.Embeds[0].URL, true))
 	}
-	return tea.Batch(cmds...)
+	return tea.Sequence(cmds...)
+}
+
+func (m *CastView) Init() tea.Cmd {
+	return nil
 }
 
 func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
