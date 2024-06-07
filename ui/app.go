@@ -6,9 +6,18 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/ssh"
 
 	"github.com/treethought/castr/api"
+	"github.com/treethought/castr/config"
 )
+
+// TODO provide to models
+var renderer *lipgloss.Renderer = lipgloss.DefaultRenderer()
+
+func NewStyle() lipgloss.Style {
+	return renderer.NewStyle()
+}
 
 type navNameMsg struct {
 	name string
@@ -35,6 +44,7 @@ type SelectCastMsg struct {
 }
 
 type App struct {
+	pty             ssh.Pty
 	models          map[string]tea.Model
 	focusedModel    tea.Model
 	focused         string
@@ -50,7 +60,16 @@ type App struct {
 	help            *HelpView
 }
 
-func NewApp() *App {
+func NewSSHApp(cfg *config.Config, pty ssh.Pty, r *lipgloss.Renderer) *App {
+	if r != nil {
+		renderer = r
+	}
+	app := NewApp(cfg)
+	app.pty = pty
+	return app
+}
+
+func NewApp(cfg *config.Config) *App {
 	a := &App{
 		models:      make(map[string]tea.Model),
 		showSidebar: true,
@@ -61,6 +80,17 @@ func NewApp() *App {
 	a.statusLine = NewStatusLine(a)
 	a.help = NewHelpView()
 	a.SetNavName("feed")
+
+	client := api.NewClient(cfg)
+	feed := NewFeedView(client, DefaultFeedParams())
+	a.Register("feed", feed)
+	a.SetFocus("feed")
+
+	castDetails := NewCastView(nil)
+	a.Register("cast", castDetails)
+
+	profile := NewProfile()
+	a.Register("profile", profile)
 	return a
 }
 
@@ -310,7 +340,7 @@ func (a *App) View() string {
 		main = a.quickSelect.View()
 	}
 	if !a.showSidebar {
-		return lipgloss.NewStyle().Align(lipgloss.Center).Render(main)
+		return NewStyle().Align(lipgloss.Center).Render(main)
 	}
 
 	if a.help.IsFull() {

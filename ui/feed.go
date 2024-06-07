@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	docStyle = lipgloss.NewStyle().Margin(2, 2).Align(lipgloss.Center)
+	docStyle = NewStyle().Margin(2, 2).Align(lipgloss.Center)
 )
 
 type apiErrorMsg struct {

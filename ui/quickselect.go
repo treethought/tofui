@@ -140,7 +140,7 @@ func (m *QuickSelect) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-var dialogBoxStyle = lipgloss.NewStyle().
+var dialogBoxStyle = NewStyle().
 	Border(lipgloss.RoundedBorder()).
 	BorderForeground(lipgloss.Color("#874BFD")).
 	Padding(1, 0).

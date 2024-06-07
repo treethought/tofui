@@ -160,11 +160,11 @@ func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case *postResponseMsg:
 		if msg.err != nil {
 			log.Println("error posting cast: ", msg.err)
-			m.vp.SetContent(lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000")).Render("error posting cast!"))
+			m.vp.SetContent(NewStyle().Foreground(lipgloss.Color("#ff0000")).Render("error posting cast!"))
 			return m, nil
 		}
 		if msg.resp == nil || !msg.resp.Success {
-			m.vp.SetContent(lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000")).Render("error posting cast!"))
+			m.vp.SetContent(NewStyle().Foreground(lipgloss.Color("#ff0000")).Render("error posting cast!"))
 			return m, nil
 		}
 		log.Println("cast posted: ", msg.resp.Cast.Hash)
@@ -201,7 +201,7 @@ func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *PublishInput) viewConfirm() string {
-	header := lipgloss.NewStyle().BorderBottom(true).BorderStyle(lipgloss.NormalBorder()).Render(confirmPrefix)
+	header := NewStyle().BorderBottom(true).BorderStyle(lipgloss.NormalBorder()).Render(confirmPrefix)
 	return lipgloss.JoinVertical(lipgloss.Top,
 		header, m.ta.View())
 }
@@ -224,7 +224,7 @@ func (m *PublishInput) View() string {
 		titleText = fmt.Sprintf("publish cast to channel: /%s", m.ctx.channel)
 	}
 
-	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#874BFD")).BorderBottom(true).BorderStyle(lipgloss.NormalBorder())
+	titleStyle := NewStyle().Foreground(lipgloss.Color("#874BFD")).BorderBottom(true).BorderStyle(lipgloss.NormalBorder())
 	title := titleStyle.Render(titleText)
 
 	dialog := lipgloss.Place(m.w/2, m.h/2,

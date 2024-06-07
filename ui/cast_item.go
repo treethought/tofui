@@ -21,23 +21,23 @@ var (
 	highlight = lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
 	special   = lipgloss.AdaptiveColor{Light: "#43BF6D", Dark: "#73F59F"}
 
-	displayNameStyle = lipgloss.NewStyle().
+	displayNameStyle = NewStyle().
 				MarginRight(5).
 				Foreground(highlight)
 
-	usernameStyle = lipgloss.NewStyle()
+	usernameStyle = NewStyle()
 
-	imgStyle = lipgloss.NewStyle()
+	imgStyle = NewStyle()
 
-	headerStyle = lipgloss.NewStyle().BorderBottom(true)
+	headerStyle = NewStyle().BorderBottom(true)
 
-	infoStyle = lipgloss.NewStyle().
+	infoStyle = NewStyle().
 			MarginLeft(5).MarginRight(5).
 			BorderStyle(lipgloss.NormalBorder()).
 			BorderTop(true).
 			BorderForeground(subtle).AlignHorizontal(lipgloss.Center)
 
-	contentStyle = lipgloss.NewStyle()
+	contentStyle = NewStyle()
 
 	md, _ = glamour.NewTermRenderer(
 		// detect background color and pick either the default dark or light theme
@@ -74,12 +74,12 @@ func CastStats(cast *api.Cast, margin int) string {
 		liked = EmojiLike
 	}
 	stats := lipgloss.JoinHorizontal(lipgloss.Top,
-		lipgloss.NewStyle().Render(fmt.Sprintf("%d ", cast.Replies.Count)),
-		lipgloss.NewStyle().MarginRight(margin).Render(EmojiComment),
-		lipgloss.NewStyle().Render(fmt.Sprintf("%d ", cast.Reactions.LikesCount)),
-		lipgloss.NewStyle().MarginRight(margin).Render(liked),
-		lipgloss.NewStyle().Render(fmt.Sprintf("%d ", cast.Reactions.RecastsCount)),
-		lipgloss.NewStyle().MarginRight(margin).Render(EmojiRecyle),
+		NewStyle().Render(fmt.Sprintf("%d ", cast.Replies.Count)),
+		NewStyle().MarginRight(margin).Render(EmojiComment),
+		NewStyle().Render(fmt.Sprintf("%d ", cast.Reactions.LikesCount)),
+		NewStyle().MarginRight(margin).Render(liked),
+		NewStyle().Render(fmt.Sprintf("%d ", cast.Reactions.RecastsCount)),
+		NewStyle().MarginRight(margin).Render(EmojiRecyle),
 	)
 	return stats
 

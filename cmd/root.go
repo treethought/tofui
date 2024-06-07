@@ -8,7 +8,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
-	"github.com/treethought/castr/api"
 	"github.com/treethought/castr/config"
 	"github.com/treethought/castr/db"
 	"github.com/treethought/castr/ui"
@@ -26,19 +25,7 @@ var rootCmd = &cobra.Command{
 }
 
 func runLocal() {
-	client := api.NewClient(cfg)
-	app := ui.NewApp()
-
-	feed := ui.NewFeedView(client, ui.DefaultFeedParams())
-	app.Register("feed", feed)
-	app.SetFocus("feed")
-
-	castDetails := ui.NewCastView(nil)
-	app.Register("cast", castDetails)
-
-	profile := ui.NewProfile()
-	app.Register("profile", profile)
-
+	app := ui.NewApp(cfg)
 	p := tea.NewProgram(app, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)

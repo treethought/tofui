@@ -17,16 +17,16 @@ func UserBio(user *api.User) string {
 		return l.View()
 	}
 	stats := lipgloss.JoinHorizontal(lipgloss.Top,
-		lipgloss.NewStyle().Bold(true).Render(fmt.Sprintf("%d", user.FollowingCount)),
-		lipgloss.NewStyle().MarginRight(10).Render(" following"),
-		lipgloss.NewStyle().Bold(true).Render(fmt.Sprintf("%d", user.FollowerCount)),
-		lipgloss.NewStyle().Render(" followers"),
+		NewStyle().Bold(true).Render(fmt.Sprintf("%d", user.FollowingCount)),
+		NewStyle().MarginRight(10).Render(" following"),
+		NewStyle().Bold(true).Render(fmt.Sprintf("%d", user.FollowerCount)),
+		NewStyle().Render(" followers"),
 	)
 
-	style := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).BorderBottom(true).Padding(2)
+	style := NewStyle().BorderStyle(lipgloss.ThickBorder()).BorderBottom(true).Padding(2)
 
 	return style.Render(lipgloss.JoinVertical(lipgloss.Top,
-		lipgloss.NewStyle().MarginTop(0).MarginBottom(0).Padding(0).Render(user.Profile.Bio.Text),
+		NewStyle().MarginTop(0).MarginBottom(0).Padding(0).Render(user.Profile.Bio.Text),
 		stats,
 	))
 
@@ -104,7 +104,7 @@ func (m *Profile) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 func (m *Profile) View() string {
 
-	// profile := lipgloss.NewStyle().MaxHeight(2).Render(lipgloss.JoinHorizontal(lipgloss.Left,
+	// profile := NewStyle().MaxHeight(2).Render(lipgloss.JoinHorizontal(lipgloss.Left,
 	//   UsernameHeader(m.user, m.pfp),
 	//   UserBio(m.user),
 	//   )

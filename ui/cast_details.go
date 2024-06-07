@@ -10,7 +10,7 @@ import (
 	"github.com/treethought/castr/api"
 )
 
-var style = lipgloss.NewStyle().Margin(2,2).BorderStyle(lipgloss.RoundedBorder()).Border(lipgloss.RoundedBorder(), true)
+var style = NewStyle().Margin(2,2).BorderStyle(lipgloss.RoundedBorder()).Border(lipgloss.RoundedBorder(), true)
 
 type CastView struct {
 	cast    *api.Cast
@@ -132,7 +132,7 @@ func (m *CastView) View() string {
 	return style.Render(
 		lipgloss.JoinVertical(lipgloss.Center,
 			UsernameHeader(&m.cast.Author, m.pfp),
-			lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderBottom(true).Padding(0).Render(CastStats(m.cast, 10)),
+			NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderBottom(true).Padding(0).Render(CastStats(m.cast, 10)),
 			// CastContent(m.cast, 10),
 			m.vp.View(),
 			m.img.View(),

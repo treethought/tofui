@@ -60,7 +60,7 @@ func (i *sidebarItem) Description() string {
 	return ""
 }
 
-var navStyle = lipgloss.NewStyle().Margin(2, 2, 0, 2).BorderRight(true).BorderStyle(lipgloss.RoundedBorder())
+var navStyle = NewStyle().Margin(2, 2, 0, 2).BorderRight(true).BorderStyle(lipgloss.RoundedBorder())
 
 func NewSidebar(app *App) *Sidebar {
 	d := list.NewDefaultDelegate()
@@ -179,7 +179,7 @@ func (m *Sidebar) View() string {
 		return navStyle.Render(m.nav.View())
 	}
 
-	accountStyle := lipgloss.NewStyle().
+	accountStyle := NewStyle().
 		Border(lipgloss.RoundedBorder(), true, false, true).
 		Width(m.w).
 		MaxWidth(m.w).
