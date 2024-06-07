@@ -39,8 +39,6 @@ type App struct {
 	focusedModel    tea.Model
 	focused         string
 	navname         string
-	height          int
-	width           int
 	sidebar         *Sidebar
 	showSidebar     bool
 	prev            string
@@ -62,14 +60,8 @@ func NewApp() *App {
 	a.publish = NewPublishInput(a)
 	a.statusLine = NewStatusLine(a)
 	a.help = NewHelpView()
+	a.SetNavName("feed")
 	return a
-}
-
-func (a *App) Height() int {
-	return a.height
-}
-func (a *App) Width() int {
-	return a.width
 }
 
 func (a *App) GetModel(name string) tea.Model {
@@ -126,6 +118,11 @@ func (a *App) FocusPrev() tea.Cmd {
 	prev := a.GetModel(a.prev)
 	if a.prev == "" || prev == nil {
 		a.SetNavName("feed")
+		if f, ok := a.GetModel("feed").(*FeedView); ok {
+			f.Clear()
+			return tea.Sequence(f.SetDefaultParams(), a.SetFocus("feed"))
+		}
+
 		return a.SetFocus("feed")
 	}
 	if m := a.GetModel(a.prev); m != nil {
@@ -210,31 +207,36 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		SetHeight(msg.Height)
 		SetWidth(msg.Width)
 
-		a.statusLine.SetSize(msg.Width, msg.Height)
+		a.statusLine.SetSize(msg.Width, 1)
 
-		// substract the sidebar width from the window width
+		// set the height of the statusLine
 		wx, wy := msg.Width, msg.Height-1
-		a.width = wx
-		a.height = wy
 
-		sw := int(float64(wx) * 0.2)
-		a.sidebar.SetSize(sw, wy)
+		sideMax := 30
+		sidePct := int(float64(wx) * 0.2)
+		sx := sidePct
+		if sideMax < sidePct {
+			sx = sideMax
+		}
+		a.sidebar.SetSize(sx, wy)
 
-		qw := wx - sw
+		qw := wx - sx
 		qh := wy - 10
 		a.quickSelect.SetSize(qw, qh)
 
-		pw := wx - sw
+		pw := wx - sx
 		py := wy - 10
 		a.publish.SetSize(pw, py)
 
-		hw := wx - sw
+		hw := wx - sx
 		hy := wy - 10
 		a.help.SetSize(hw, hy)
 
+		// substract the sidebar width from the window width
+		mx, my := wx-sx, wy
 		childMsg := tea.WindowSizeMsg{
-			Width:  int(float64(wx) * 0.8),
-			Height: wy,
+			Width:  mx,
+			Height: my,
 		}
 
 		for n, m := range a.models {
@@ -308,7 +310,7 @@ func (a *App) View() string {
 		main = a.quickSelect.View()
 	}
 	if !a.showSidebar {
-		return focus.View()
+		return lipgloss.NewStyle().Align(lipgloss.Center).Render(main)
 	}
 
 	if a.help.IsFull() {

@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	docStyle = lipgloss.NewStyle().Margin(1, 2)
+	docStyle = lipgloss.NewStyle().Margin(2, 2).Align(lipgloss.Center)
 )
 
 type apiErrorMsg struct {
@@ -215,7 +215,7 @@ func (m *FeedView) getCurrentItem() *CastFeedItem {
 	return m.items[row]
 }
 func (m *FeedView) SetSize(w, h int) {
-	docStyle = docStyle.MaxWidth(w)
+	docStyle = docStyle.MaxWidth(w).MaxHeight(h)
 	x, y := docStyle.GetFrameSize()
 	m.table.SetWidth(w - x)
 	m.table.SetHeight(h - y)

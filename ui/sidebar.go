@@ -12,12 +12,12 @@ import (
 )
 
 type Sidebar struct {
-	app      *App
-	active   bool
-	nav      *list.Model
-	channels *list.Model
-	account  *api.User
-	pfp      *ImageModel
+	app     *App
+	active  bool
+	nav     *list.Model
+	account *api.User
+	pfp     *ImageModel
+	w, h    int
 }
 
 type currentAccountMsg struct {
@@ -60,7 +60,7 @@ func (i *sidebarItem) Description() string {
 	return ""
 }
 
-var navStyle = lipgloss.NewStyle().BorderRight(true).BorderStyle(lipgloss.RoundedBorder())
+var navStyle = lipgloss.NewStyle().Margin(2, 2, 0, 2).BorderRight(true).BorderStyle(lipgloss.RoundedBorder())
 
 func NewSidebar(app *App) *Sidebar {
 	d := list.NewDefaultDelegate()
@@ -85,9 +85,10 @@ func NewSidebar(app *App) *Sidebar {
 
 func (m *Sidebar) SetSize(w, h int) {
 	x, y := navStyle.GetFrameSize()
-	m.nav.SetWidth(w - x - 2)
+	m.nav.SetWidth(w - x)
 	m.nav.SetHeight(h - y - 4)
 	m.pfp.SetSize(4, 4)
+	m.w, m.h = w, h
 }
 
 func (m *Sidebar) Active() bool {
@@ -178,7 +179,11 @@ func (m *Sidebar) View() string {
 		return navStyle.Render(m.nav.View())
 	}
 
-	accountStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder(), true, false, true).Align(lipgloss.Center, lipgloss.Center).Margin(0).Padding(0)
+	accountStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder(), true, false, true).
+		Width(m.w).
+		MaxWidth(m.w).
+		Align(lipgloss.Center, lipgloss.Center).Margin(0).Padding(0)
 
 	account := accountStyle.Render(
 		lipgloss.JoinHorizontal(lipgloss.Center,

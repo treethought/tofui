@@ -10,7 +10,7 @@ import (
 	"github.com/treethought/castr/api"
 )
 
-var style = lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).Border(lipgloss.RoundedBorder(), true)
+var style = lipgloss.NewStyle().Margin(2,2).BorderStyle(lipgloss.RoundedBorder()).Border(lipgloss.RoundedBorder(), true)
 
 type CastView struct {
 	cast    *api.Cast
