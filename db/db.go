@@ -1,11 +1,12 @@
 package db
 
 import (
-	"log"
+	"os"
 	"sync"
 	"time"
 
 	badger "github.com/dgraph-io/badger/v4"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -22,14 +23,25 @@ func GetDB() *DB {
 
 type DB struct {
 	db *badger.DB
+	lf *os.File
 }
 
 func NewDB() *DB {
-	b, err := badger.Open(badger.DefaultOptions("/tmp/castr"))
+	lf, err := os.Create("/tmp/castr/db.log")
 	if err != nil {
 		log.Fatal(err)
 	}
-	db := &DB{db: b}
+
+	logger := log.New()
+	logger.SetOutput(lf)
+	opts := badger.DefaultOptions("/tmp/castr")
+	opts.Logger = logger
+
+	b, err := badger.Open(opts)
+	if err != nil {
+		log.Fatal(err)
+	}
+	db := &DB{db: b, lf: lf}
 	go db.runGC()
 	return db
 }
@@ -49,6 +61,7 @@ func (db *DB) runGC() {
 
 func (db *DB) Close() {
 	db.db.Close()
+	db.lf.Close()
 }
 
 func (db *DB) Set(key, value []byte) error {
