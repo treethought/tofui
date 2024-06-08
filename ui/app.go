@@ -9,8 +9,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/ssh"
 
-	"github.com/treethought/castr/api"
-	"github.com/treethought/castr/config"
+	"github.com/treethought/tofui/api"
+	"github.com/treethought/tofui/config"
 )
 
 // TODO provide to models

@@ -5,7 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/treethought/castr/api"
+	"github.com/treethought/tofui/api"
 )
 
 type repliesMsg struct {
@@ -37,6 +37,7 @@ func NewRepliesView(app *App) *RepliesView {
 	feed.SetShowStats(false)
 	return &RepliesView{
 		feed: feed,
+    app: app,
 	}
 }
 
@@ -54,6 +55,16 @@ func (m *RepliesView) Clear() {
 func (m *RepliesView) SetOpHash(hash string) tea.Cmd {
 	m.Clear()
 	m.opHash = hash
+  if m.app == nil {
+    log.Println("app is nil")
+  }
+	if m.app.ctx == nil {
+		log.Println("app context is nil")
+	}
+	if m.app.ctx.signer == nil {
+		log.Println("signer is nil")
+	}
+
 	return getConvoCmd(m.app.client, m.app.ctx.signer, hash)
 }
 

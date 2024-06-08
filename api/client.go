@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/treethought/castr/config"
+	"github.com/treethought/tofui/config"
 )
 
 var (

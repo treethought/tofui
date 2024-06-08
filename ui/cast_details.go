@@ -7,7 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/treethought/castr/api"
+	"github.com/treethought/tofui/api"
 )
 
 var style = NewStyle().Margin(2, 2).BorderStyle(lipgloss.RoundedBorder()).Border(lipgloss.RoundedBorder(), true)

@@ -5,16 +5,16 @@ SHELL := /bin/bash
 DEPLOY_USER ?= root
 
 build:
-	go build -o ./castr
+	go build -o ./tofui
 
 clean:
-	rm -rf /tmp/castr
+	rm -rf /tmp/tofui
 
 start:
 	go run cmd/main.go run -c examples/config.yaml
 
 deploy:
 	@echo "Deploying as user: ${DEPLOY_USER}"
-	scp ./castr ${DEPLOY_USER}@${DEPLOY_HOST}:/usr/bin/
-	scp config.yaml ${DEPLOY_USER}@${DEPLOY_HOST}:/etc/castr/config.yaml
+	scp ./tofui ${DEPLOY_USER}@${DEPLOY_HOST}:/usr/bin/
+	scp config.yaml ${DEPLOY_USER}@${DEPLOY_HOST}:/etc/tofui/config.yaml
 

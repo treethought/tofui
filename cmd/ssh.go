@@ -26,8 +26,8 @@ import (
 	"github.com/muesli/termenv"
 	"github.com/spf13/cobra"
 
-	"github.com/treethought/castr/api"
-	"github.com/treethought/castr/ui"
+	"github.com/treethought/tofui/api"
+	"github.com/treethought/tofui/ui"
 )
 
 var (
@@ -49,7 +49,7 @@ type Server struct {
 // sshCmd represents the ssh command
 var sshCmd = &cobra.Command{
 	Use:   "ssh",
-	Short: "serve castr over ssh",
+	Short: "serve tofui over ssh",
 	Run: func(cmd *cobra.Command, args []string) {
 		sv := &Server{
 			prgmSessions: make(map[string][]*tea.Program),
@@ -62,7 +62,7 @@ var sshCmd = &cobra.Command{
 func (sv *Server) runSSHServer() {
 	s, err := wish.NewServer(
 		wish.WithAddress(addr),
-		wish.WithHostKeyPath(".ssh/castr_ed25519"),
+		wish.WithHostKeyPath(".ssh/tofui_ed25519"),
 		// Accept any public key.
 		ssh.PublicKeyAuth(func(ssh.Context, ssh.PublicKey) bool { return true }),
 		// Do not accept password auth.

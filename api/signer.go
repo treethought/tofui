@@ -9,7 +9,7 @@ import (
 
 	"github.com/dgraph-io/badger/v4"
 
-	"github.com/treethought/castr/db"
+	"github.com/treethought/tofui/db"
 )
 
 var (

@@ -8,9 +8,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
-	"github.com/treethought/castr/config"
-	"github.com/treethought/castr/db"
-	"github.com/treethought/castr/ui"
+	"github.com/treethought/tofui/config"
+	"github.com/treethought/tofui/db"
+	"github.com/treethought/tofui/ui"
 )
 
 var (
@@ -19,7 +19,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "castr",
+	Use:   "tofui",
 	Short: "terminally on farcaster user interface",
 	Run: func(cmd *cobra.Command, args []string) {
 		runLocal()
@@ -59,7 +59,7 @@ func Execute() {
 }
 
 func init() {
-	os.MkdirAll("/tmp/castr", 0755)
+	os.MkdirAll("/tmp/tofui", 0755)
 	var err error
 	if configPath == "" {
 		configPath = "config.yaml"

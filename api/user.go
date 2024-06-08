@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/treethought/castr/db"
+	"github.com/treethought/tofui/db"
 )
 
 type Profile struct {

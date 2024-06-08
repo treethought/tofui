@@ -1,4 +1,4 @@
-module github.com/treethought/castr
+module github.com/treethought/tofui
 
 go 1.21
 

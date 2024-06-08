@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/treethought/castr/cmd"
+	"github.com/treethought/tofui/cmd"
 )
 
 func main() {

@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/treethought/castr/api"
+	"github.com/treethought/tofui/api"
 )
 
 type Sidebar struct {
@@ -70,7 +70,7 @@ func NewSidebar(app *App) *Sidebar {
 	l.KeyMap.CursorUp.SetKeys("k", "up")
 	l.KeyMap.CursorDown.SetKeys("j", "down")
 	l.KeyMap.Quit.SetKeys("ctrl+c")
-	l.Title = "castr"
+	l.Title = "tofui"
 	l.SetShowTitle(true)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)

@@ -30,7 +30,7 @@ type DB struct {
 func NewDB() *DB {
 	path := dbPath
 	if path == "" {
-		path = "/tmp/castr"
+		path = "/tmp/tofui"
 	}
 
 	err := os.MkdirAll(path, 0755)
