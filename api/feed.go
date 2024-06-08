@@ -17,9 +17,13 @@ type FeedRequest struct {
 }
 
 func (r *FeedRequest) opts() []RequestOption {
-	viewer := GetSigner().FID
-	if r.FID == 0 {
-		r.FID = viewer
+	signer := GetSigner()
+	viewer := 3
+	if signer != nil {
+		viewer := signer.FID
+		if r.FID == 0 {
+			r.FID = viewer
+		}
 	}
 	var opts []RequestOption
 	if r.FeedType != "" {

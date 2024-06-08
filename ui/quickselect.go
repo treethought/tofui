@@ -64,6 +64,10 @@ type channelListMsg struct {
 }
 
 func getUserChannels(activeOnly bool) tea.Msg {
+	signer := api.GetSigner()
+	if signer == nil {
+		return nil
+	}
 	fid := api.GetSigner().FID
 	channels, err := api.GetClient().GetUserChannels(fid, activeOnly, api.WithLimit(100))
 	if err != nil {

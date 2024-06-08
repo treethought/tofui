@@ -13,7 +13,10 @@ import (
 	"github.com/treethought/castr/ui"
 )
 
-var cfg *config.Config
+var (
+  configPath = os.Getenv("CONFIG_FILE")
+  cfg *config.Config
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "castr",
@@ -53,7 +56,10 @@ func Execute() {
 func init() {
 	os.MkdirAll("/tmp/castr", 0755)
 	var err error
-	cfg, err = config.ReadConfig("config.yaml")
+  if configPath == "" {
+    configPath = "config.yaml"
+  }
+	cfg, err = config.ReadConfig(configPath)
 	if err != nil {
 		log.Fatal(err)
 	}

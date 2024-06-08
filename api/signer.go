@@ -90,7 +90,7 @@ func StartSigninServer(cfg *config.Config, f func(fid uint64, signerUUid string)
 	})
 
 	srv := &http.Server{
-		Addr:    ":8000",
+		Addr:    "0.0.0.0:8000",
 		Handler: mux,
 	}
 	// listener, err := net.Listen("tcp", srv.Addr)

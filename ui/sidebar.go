@@ -100,8 +100,10 @@ func (m *Sidebar) SetActive(active bool) {
 
 func (m *Sidebar) navHeader() []list.Item {
 	items := []list.Item{}
-	items = append(items, &sidebarItem{name: "profile", value: fmt.Sprintf("%d", api.GetSigner().FID)})
-	items = append(items, &sidebarItem{name: "feed", value: fmt.Sprintf("%d", api.GetSigner().FID)})
+	if api.GetSigner() != nil {
+		items = append(items, &sidebarItem{name: "profile"})
+	}
+	items = append(items, &sidebarItem{name: "feed"})
 	items = append(items, &sidebarItem{name: "--channels---", value: "--channels--", icon: "🏠"})
 	return items
 }

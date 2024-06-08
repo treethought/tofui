@@ -21,8 +21,9 @@ import (
 )
 
 var (
-	host = "localhost"
-	port = "4649"
+	host = "0.0.0.0"
+	port = "42069"
+	// port = "22"
 	addr = host + ":" + port
 )
 

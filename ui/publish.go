@@ -84,7 +84,11 @@ type PublishInput struct {
 
 func NewPublishInput(app *App) *PublishInput {
 	ta := textarea.New()
-	ta.Placeholder = "publish cast..."
+	if api.GetSigner() == nil {
+		ta.Placeholder = "please sign in to post"
+	} else {
+		ta.Placeholder = "publish cast..."
+	}
 	ta.CharLimit = 320
 	ta.ShowLineNumbers = false
 	ta.Prompt = ""
@@ -193,6 +197,11 @@ func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		}
+	}
+	if api.GetSigner() == nil {
+		m.ta.Blur()
+		m.ta.SetValue("please sign in to post")
+		return m, nil
 	}
 
 	ta, cmd := m.ta.Update(msg)
