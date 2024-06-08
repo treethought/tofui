@@ -63,13 +63,8 @@ type channelListMsg struct {
 	activeOnly bool
 }
 
-func getUserChannels(activeOnly bool) tea.Msg {
-	signer := api.GetSigner()
-	if signer == nil {
-		return nil
-	}
-	fid := api.GetSigner().FID
-	channels, err := api.GetClient().GetUserChannels(fid, activeOnly, api.WithLimit(100))
+func getUserChannels(client *api.Client, fid uint64, activeOnly bool) tea.Msg {
+	channels, err := client.GetUserChannels(fid, activeOnly, api.WithLimit(100))
 	if err != nil {
 		log.Println("error getting user channels: ", err)
 		return nil
@@ -77,18 +72,18 @@ func getUserChannels(activeOnly bool) tea.Msg {
 	return &channelListMsg{channels, activeOnly}
 }
 
-func getChannelsCmd(activeOnly bool) tea.Cmd {
+func getChannelsCmd(client *api.Client, activeOnly bool, fid uint64) tea.Cmd {
 	return func() tea.Msg {
-		if activeOnly {
-			return getUserChannels(activeOnly)
+		if activeOnly && fid != 0 {
+			return getUserChannels(client, fid, activeOnly)
 		}
 		msg := &channelListMsg{}
-		ids, err := api.GetClient().GetCachedChannelIds()
+		ids, err := client.GetCachedChannelIds()
 		if err != nil {
 			log.Println("error getting channel names: ", err)
 		}
 		for _, id := range ids {
-			channel, err := api.GetClient().GetChannelById(id)
+			channel, err := client.GetChannelById(id)
 			if err != nil {
 				log.Println("error getting channel: ", err)
 				continue
@@ -106,7 +101,12 @@ func (m *QuickSelect) SetSize(w, h int) {
 }
 
 func (m *QuickSelect) Init() tea.Cmd {
-	return tea.Batch(getChannelsCmd(false), func() tea.Msg { return tea.KeyCtrlQuestionMark })
+	var fid uint64
+	if m.app.ctx.signer != nil {
+		fid = m.app.ctx.signer.FID
+	}
+	return tea.Batch(
+		getChannelsCmd(m.app.client, false, fid), func() tea.Msg { return tea.KeyCtrlQuestionMark })
 }
 
 func (m *QuickSelect) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -123,19 +123,26 @@ func (m *QuickSelect) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			currentItem := m.channels.SelectedItem().(*selectItem)
 			if currentItem.name == "profile" {
 				log.Println("profile selected")
-				fid := api.GetSigner().FID
-				if fid == 0 {
+				if m.app.ctx.signer == nil {
 					return m, nil
 				}
-				return m, tea.Sequence(m.app.SetFocus("profile"), selectProfileCmd(fid))
+				return m, tea.Sequence(
+					m.app.SetFocus("profile"), selectProfileCmd(m.app.ctx.signer.FID),
+				)
 			}
 			if currentItem.name == "feed" {
 				log.Println("feed selected")
-				return m, tea.Sequence(m.app.SetFocus("feed"), getFeedCmd(DefaultFeedParams()))
+				return m, tea.Sequence(m.app.SetFocus("feed"), getDefaultFeedCmd(m.app.client, m.app.ctx.signer))
 			}
 			if currentItem.itype == "channel" {
 				log.Println("channel selected")
-				return m, tea.Sequence(m.app.SetFocus("feed"), getFeedCmd(&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: currentItem.value, Limit: 100}))
+				return m, tea.Sequence(
+					m.app.SetFocus("feed"),
+					getFeedCmd(m.app.client, &api.FeedRequest{
+						FeedType: "filter", FilterType: "parent_url",
+						ParentURL: currentItem.value, Limit: 100,
+					}),
+				)
 			}
 		}
 	}

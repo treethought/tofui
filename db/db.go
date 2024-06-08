@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	db   *DB
-	once sync.Once
+	db     *DB
+	once   sync.Once
+	dbPath = os.Getenv("DB_PATH")
 )
 
 func GetDB() *DB {
@@ -27,19 +28,31 @@ type DB struct {
 }
 
 func NewDB() *DB {
-	lf, err := os.Create("/tmp/castr/db.log")
+	path := dbPath
+	if path == "" {
+		path = "/tmp/castr"
+	}
+
+	err := os.MkdirAll(path, 0755)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed to create db directory: %v", err)
+	}
+
+	lfPath := path + "/db.log"
+
+	lf, err := os.Create(lfPath)
+	if err != nil {
+		log.Fatalf("failed to create db log file: %v", err)
 	}
 
 	logger := log.New()
 	logger.SetOutput(lf)
-	opts := badger.DefaultOptions("/tmp/castr")
+	opts := badger.DefaultOptions(path)
 	opts.Logger = logger
 
 	b, err := badger.Open(opts)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("failed to open db: ", err)
 	}
 	db := &DB{db: b, lf: lf}
 	go db.runGC()

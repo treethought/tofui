@@ -35,7 +35,7 @@ func NewStatusLine(app *App) *StatusLine {
 	return &StatusLine{
 		sb:   sb,
 		app:  app,
-		help: NewHelpView(),
+		help: NewHelpView(app),
 		full: false,
 	}
 }

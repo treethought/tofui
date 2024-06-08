@@ -14,8 +14,8 @@ import (
 )
 
 var (
-  configPath = os.Getenv("CONFIG_FILE")
-  cfg *config.Config
+	configPath = os.Getenv("CONFIG_FILE")
+	cfg        *config.Config
 )
 
 var rootCmd = &cobra.Command{
@@ -28,7 +28,7 @@ var rootCmd = &cobra.Command{
 }
 
 func runLocal() {
-	app := ui.NewApp(cfg)
+	app := ui.NewApp(cfg, nil)
 	p := tea.NewProgram(app, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
@@ -56,11 +56,11 @@ func Execute() {
 func init() {
 	os.MkdirAll("/tmp/castr", 0755)
 	var err error
-  if configPath == "" {
-    configPath = "config.yaml"
-  }
+	if configPath == "" {
+		configPath = "config.yaml"
+	}
 	cfg, err = config.ReadConfig(configPath)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("failed to read config: ", err)
 	}
 }

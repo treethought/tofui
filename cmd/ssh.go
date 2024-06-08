@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,11 +13,13 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/charmbracelet/ssh"
 	"github.com/charmbracelet/wish"
+	"github.com/charmbracelet/wish/accesscontrol"
 	"github.com/charmbracelet/wish/activeterm"
 	"github.com/charmbracelet/wish/bubbletea"
 	"github.com/charmbracelet/wish/logging"
 	"github.com/spf13/cobra"
 
+	"github.com/treethought/castr/api"
 	"github.com/treethought/castr/ui"
 )
 
@@ -32,6 +35,16 @@ var sshCmd = &cobra.Command{
 	Use:   "ssh",
 	Short: "serve castr over ssh",
 	Run: func(cmd *cobra.Command, args []string) {
+		go api.StartSigninServer(cfg, func(fid uint64, uuid, pk string) {
+			client := api.NewClient(cfg)
+			signer := &api.Signer{FID: fid, UUID: uuid, PublicKey: pk}
+			if user, err := client.GetUserByFID(fid, fid); err == nil {
+				signer.Username = user.Username
+				signer.DisplayName = user.DisplayName
+			}
+			api.SetSigner(signer)
+			fmt.Println("signed in as:", signer.Username)
+		})
 		runSSHServer()
 	},
 }
@@ -40,10 +53,15 @@ func runSSHServer() {
 	s, err := wish.NewServer(
 		wish.WithAddress(addr),
 		wish.WithHostKeyPath(".ssh/castr_ed25519"),
+		// Accept any public key.
+		ssh.PublicKeyAuth(func(ssh.Context, ssh.PublicKey) bool { return true }),
+		// Do not accept password auth.
+		ssh.PasswordAuth(func(ssh.Context, string) bool { return false }),
 		wish.WithMiddleware(
 			bubbletea.Middleware(teaHandler),
 			activeterm.Middleware(),
 			logging.Middleware(),
+			accesscontrol.Middleware(),
 		),
 	)
 	if err != nil {
@@ -71,10 +89,15 @@ func runSSHServer() {
 
 func teaHandler(s ssh.Session) (tea.Model, []tea.ProgramOption) {
 	// This should never fail, as we are using the activeterm middleware.
-	pty, _, _ := s.Pty()
+	_, _, _ = s.Pty()
 
 	renderer := bubbletea.MakeRenderer(s)
-	app := ui.NewSSHApp(cfg, pty, renderer)
+	app, err := ui.NewSSHApp(cfg, s, renderer)
+	if err != nil {
+		log.Error("failed to create app", "error", err)
+		return nil, nil
+	}
+
 	return app, []tea.ProgramOption{tea.WithAltScreen()}
 }
 

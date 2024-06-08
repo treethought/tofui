@@ -14,15 +14,16 @@ type repliesMsg struct {
 }
 
 type RepliesView struct {
+	app    *App
 	opHash string
 	convo  *api.Cast
 	items  []*CastFeedItem
 	feed   *FeedView
 }
 
-func getConvoCmd(hash string) tea.Cmd {
+func getConvoCmd(client *api.Client, signer *api.Signer, hash string) tea.Cmd {
 	return func() tea.Msg {
-		cc, err := api.GetClient().GetCastWithReplies(hash)
+		cc, err := client.GetCastWithReplies(signer, hash)
 		if err != nil {
 			return &repliesMsg{err: err}
 		}
@@ -30,8 +31,8 @@ func getConvoCmd(hash string) tea.Cmd {
 	}
 }
 
-func NewRepliesView() *RepliesView {
-	feed := NewFeedView(api.GetClient(), nil)
+func NewRepliesView(app *App) *RepliesView {
+	feed := NewFeedView(app)
 	feed.SetShowChannel(false)
 	feed.SetShowStats(false)
 	return &RepliesView{
@@ -53,7 +54,7 @@ func (m *RepliesView) Clear() {
 func (m *RepliesView) SetOpHash(hash string) tea.Cmd {
 	m.Clear()
 	m.opHash = hash
-	return getConvoCmd(hash)
+	return getConvoCmd(m.app.client, m.app.ctx.signer, hash)
 }
 
 func (m *RepliesView) SetSize(w, h int) {

@@ -24,13 +24,12 @@ type currentAccountMsg struct {
 	account *api.User
 }
 
-func getCurrentAccount() tea.Cmd {
+func getCurrentAccount(client *api.Client, signer *api.Signer) tea.Cmd {
 	return func() tea.Msg {
-		signer := api.GetSigner()
 		if signer == nil {
 			return nil
 		}
-		user, err := api.GetClient().GetUserByFID(signer.FID)
+		user, err := client.GetUserByFID(signer.FID, signer.FID)
 		if err != nil {
 			log.Println("error getting current account: ", err)
 			return nil
@@ -100,8 +99,10 @@ func (m *Sidebar) SetActive(active bool) {
 
 func (m *Sidebar) navHeader() []list.Item {
 	items := []list.Item{}
-	if api.GetSigner() != nil {
+	if api.GetSigner(m.app.ctx.pk) != nil {
 		items = append(items, &sidebarItem{name: "profile"})
+	} else {
+		items = append(items, &sidebarItem{name: "sign in"})
 	}
 	items = append(items, &sidebarItem{name: "feed"})
 	items = append(items, &sidebarItem{name: "--channels---", value: "--channels--", icon: "🏠"})
@@ -110,10 +111,14 @@ func (m *Sidebar) navHeader() []list.Item {
 
 func (m *Sidebar) Init() tea.Cmd {
 	log.Println("sidebar init")
+	var fid uint64
+	if m.app.ctx.signer != nil {
+		fid = m.app.ctx.signer.FID
+	}
 	return tea.Batch(
 		m.nav.SetItems(m.navHeader()),
-		getChannelsCmd(true),
-		getCurrentAccount(),
+		getChannelsCmd(m.app.client, true, fid),
+		getCurrentAccount(m.app.client, m.app.ctx.signer),
 		m.pfp.Init(),
 	)
 }
@@ -139,10 +144,15 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.String() == "enter" {
 			currentItem := m.nav.SelectedItem().(*sidebarItem)
+			if currentItem.name == "sign in" {
+        log.Println("sign in selected")
+				u := fmt.Sprintf("http://localhost:8000/signin?pk=%s", m.app.ctx.pk)
+				return m, OpenURL(u)
+			}
 			if currentItem.name == "profile" {
 				m.SetActive(false)
 				log.Println("profile selected")
-				fid := api.GetSigner().FID
+				fid := api.GetSigner(m.app.ctx.pk).FID
 				if fid == 0 {
 					return m, nil
 				}
@@ -151,12 +161,16 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if currentItem.name == "feed" {
 				m.SetActive(false)
 				log.Println("feed selected")
-				return m, tea.Sequence(m.app.SetFocus("feed"), getFeedCmd(DefaultFeedParams()))
+				return m, tea.Sequence(m.app.SetFocus("feed"), getDefaultFeedCmd(m.app.client, m.app.ctx.signer))
 			}
 			if currentItem.itype == "channel" {
 				m.SetActive(false)
 				m.app.SetNavName(fmt.Sprintf("channel: %s", currentItem.name))
-				return m, tea.Sequence(m.app.SetFocus("feed"), getFeedCmd(&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: currentItem.value, Limit: 100}))
+				return m, tea.Sequence(
+					m.app.SetFocus("feed"),
+					getFeedCmd(m.app.client,
+						&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: currentItem.value, Limit: 100}),
+				)
 			}
 		}
 	case *currentAccountMsg:

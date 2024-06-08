@@ -26,9 +26,9 @@ type ctxInfoMsg struct {
 	channel *api.Channel
 }
 
-func postCastCmd(text, parent, channel string, parentAuthor uint64) tea.Cmd {
+func postCastCmd(client *api.Client, signer *api.Signer, text, parent, channel string, parentAuthor uint64) tea.Cmd {
 	return func() tea.Msg {
-		resp, err := api.GetClient().PostCast(text, parent, channel, parentAuthor)
+		resp, err := client.PostCast(signer, text, parent, channel, parentAuthor)
 		if err != nil {
 			return &postResponseMsg{err: err}
 		}
@@ -72,6 +72,7 @@ type ctx struct {
 }
 
 type PublishInput struct {
+	app         *App
 	keys        keyMap
 	help        help.Model
 	ta          *textarea.Model
@@ -84,7 +85,7 @@ type PublishInput struct {
 
 func NewPublishInput(app *App) *PublishInput {
 	ta := textarea.New()
-	if api.GetSigner() == nil {
+	if app.ctx.signer == nil {
 		ta.Placeholder = "please sign in to post"
 	} else {
 		ta.Placeholder = "publish cast..."
@@ -96,7 +97,7 @@ func NewPublishInput(app *App) *PublishInput {
 	vp := viewport.New(0, 0)
 	vp.SetContent(ta.View())
 
-	return &PublishInput{ta: &ta, vp: &vp, keys: keys, help: help.New()}
+	return &PublishInput{ta: &ta, vp: &vp, keys: keys, help: help.New(), app: app}
 }
 
 func (m *PublishInput) Init() tea.Cmd {
@@ -125,12 +126,16 @@ func (m *PublishInput) SetContext(parent, channel string, parentAuthor uint64) t
 		m.ctx.parent = parent
 		m.ctx.parentAuthor = parentAuthor
 		m.ctx.parentUser = nil
-		parentUser, err := api.GetClient().GetUserByFID(parentAuthor)
+		var viewer uint64
+		if m.app.ctx.signer != nil {
+			viewer = m.app.ctx.signer.FID
+		}
+		parentUser, err := m.app.client.GetUserByFID(parentAuthor, viewer)
 		if err != nil {
 			log.Println("error getting parent author: ", err)
 			return nil
 		}
-		channel, err := api.GetClient().GetChannelByParentUrl(channel)
+		channel, err := m.app.client.GetChannelByParentUrl(channel)
 		if err != nil {
 			log.Println("error getting channel: ", err)
 			return nil
@@ -191,14 +196,17 @@ func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if m.showConfirm {
 			if msg.String() == "y" || msg.String() == "Y" {
-				return m, postCastCmd(m.ta.Value(), m.ctx.parent, m.ctx.channel, m.ctx.parentAuthor)
+				return m, postCastCmd(
+					m.app.client, m.app.ctx.signer,
+					m.ta.Value(), m.ctx.parent, m.ctx.channel, m.ctx.parentAuthor,
+				)
 			} else if msg.String() == "n" || msg.String() == "N" || msg.String() == "esc" {
 				m.showConfirm = false
 				return m, nil
 			}
 		}
 	}
-	if api.GetSigner() == nil {
+	if m.app.ctx.signer == nil {
 		m.ta.Blur()
 		m.ta.SetValue("please sign in to post")
 		return m, nil

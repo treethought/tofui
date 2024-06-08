@@ -96,12 +96,12 @@ func CastContent(cast *api.Cast, maxHeight int, imgs ...ImageModel) string {
 	return contentStyle.MaxHeight(maxHeight).Render(m)
 }
 
-func getCastChannelCmd(cast *api.Cast) tea.Cmd {
+func getCastChannelCmd(client *api.Client, cast *api.Cast) tea.Cmd {
 	return func() tea.Msg {
 		if cast.ParentURL == "" {
 			return nil
 		}
-		ch, err := api.GetClient().GetChannelByParentUrl(cast.ParentURL)
+		ch, err := client.GetChannelByParentUrl(cast.ParentURL)
 		if err != nil {
 			return channelInfoErrMsg{err, cast.Hash, cast.ParentURL}
 		}
@@ -121,6 +121,7 @@ type channelInfoErrMsg struct {
 }
 
 type CastFeedItem struct {
+	app        *App
 	cast       *api.Cast
 	channel    string
 	channelURL string
@@ -130,8 +131,9 @@ type CastFeedItem struct {
 
 // NewCastFeedItem displays a cast in compact form within a list
 // implements list.Item (and tea.Model only for updating image)
-func NewCastFeedItem(cast *api.Cast, compact bool) (*CastFeedItem, tea.Cmd) {
+func NewCastFeedItem(app *App, cast *api.Cast, compact bool) (*CastFeedItem, tea.Cmd) {
 	c := &CastFeedItem{
+		app:     app,
 		cast:    cast,
 		pfp:     NewImage(true, true, special),
 		compact: compact,
@@ -139,7 +141,7 @@ func NewCastFeedItem(cast *api.Cast, compact bool) (*CastFeedItem, tea.Cmd) {
 
 	cmds := []tea.Cmd{
 		c.pfp.SetURL(cast.Author.PfpURL, false),
-		getCastChannelCmd(cast),
+		getCastChannelCmd(app.client, cast),
 	}
 
 	if c.compact {
@@ -154,6 +156,7 @@ func (m *CastFeedItem) Init() tea.Cmd { return nil }
 
 func (m *CastFeedItem) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m = &CastFeedItem{
+    app:     m.app,
 		cast:    m.cast,
 		channel: m.channel,
 		pfp:     m.pfp,

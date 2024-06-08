@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"log"
 
@@ -43,9 +44,16 @@ type SelectCastMsg struct {
 	cast *api.Cast
 }
 
+type AppContext struct {
+	s      ssh.Session
+	signer *api.Signer
+	pk     string
+}
+
 type App struct {
-	pty             ssh.Pty
 	models          map[string]tea.Model
+	ctx             *AppContext
+	client          *api.Client
 	focusedModel    tea.Model
 	focused         string
 	navname         string
@@ -60,36 +68,58 @@ type App struct {
 	help            *HelpView
 }
 
-func NewSSHApp(cfg *config.Config, pty ssh.Pty, r *lipgloss.Renderer) *App {
+func (a *App) GetSigner() *api.Signer {
+	return a.ctx.signer
+}
+
+func NewSSHApp(cfg *config.Config, s ssh.Session, r *lipgloss.Renderer) (*App, error) {
 	if r != nil {
 		renderer = r
 	}
-	app := NewApp(cfg)
-	app.pty = pty
-	return app
+	if s.PublicKey() == nil {
+		return nil, fmt.Errorf("public key is nil")
+	}
+	// hash the pk so we can use it in auth flow
+	h := sha256.New()
+	pkBytes := s.PublicKey().Marshal()
+	h.Write(pkBytes)
+	pk := fmt.Sprintf("%x", h.Sum(nil))
+
+	signer := api.GetSigner(pk)
+	if signer != nil {
+		log.Println("logged in as: ", signer.Username)
+	}
+
+	ctx := &AppContext{s: s, pk: pk, signer: signer}
+	app := NewApp(cfg, ctx)
+	return app, nil
 }
 
-func NewApp(cfg *config.Config) *App {
+func NewApp(cfg *config.Config, ctx *AppContext) *App {
+	if ctx == nil {
+		ctx = &AppContext{}
+	}
 	a := &App{
 		models:      make(map[string]tea.Model),
 		showSidebar: true,
+		ctx:         ctx,
+		client:      api.NewClient(cfg),
 	}
 	a.sidebar = NewSidebar(a)
 	a.quickSelect = NewQuickSelect(a)
 	a.publish = NewPublishInput(a)
 	a.statusLine = NewStatusLine(a)
-	a.help = NewHelpView()
+	a.help = NewHelpView(a)
 	a.SetNavName("feed")
 
-	client := api.NewClient(cfg)
-	feed := NewFeedView(client, DefaultFeedParams())
+	feed := NewFeedView(a)
 	a.Register("feed", feed)
 	a.SetFocus("feed")
 
-	castDetails := NewCastView(nil)
+	castDetails := NewCastView(a, nil)
 	a.Register("cast", castDetails)
 
-	profile := NewProfile()
+	profile := NewProfile(a)
 	a.Register("profile", profile)
 	return a
 }
