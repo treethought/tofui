@@ -28,8 +28,13 @@ var rootCmd = &cobra.Command{
 }
 
 func runLocal() {
-	app := ui.NewApp(cfg, nil)
+	sv := &Server{
+		prgmSessions: make(map[string][]*tea.Program),
+	}
+	go sv.startSigninHTTPServer()
+	app := ui.NewLocalApp(cfg)
 	p := tea.NewProgram(app, tea.WithAltScreen())
+	sv.prgmSessions["local"] = append(sv.prgmSessions["local"], p)
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)

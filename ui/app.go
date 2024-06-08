@@ -100,6 +100,16 @@ func NewSSHApp(cfg *config.Config, s ssh.Session, r *lipgloss.Renderer) (*App, e
 	return app, nil
 }
 
+func NewLocalApp(cfg *config.Config) *App {
+	signer := api.GetSigner("local")
+	if signer != nil {
+		log.Println("logged in locally as: ", signer.Username)
+	}
+	ctx := &AppContext{signer: signer, pk: "local"}
+	app := NewApp(cfg, ctx)
+	return app
+}
+
 func NewApp(cfg *config.Config, ctx *AppContext) *App {
 	if ctx == nil {
 		ctx = &AppContext{}
