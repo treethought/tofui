@@ -1,27 +1,20 @@
 package api
 
 import (
-	"context"
 	_ "embed"
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
-	"strconv"
 	"sync"
-	"text/template"
 
 	"github.com/dgraph-io/badger/v4"
 
-	"github.com/treethought/castr/config"
 	"github.com/treethought/castr/db"
 )
 
 var (
-	//go:embed siwn.html
-	sinwhtml []byte
-	once     sync.Once
-	sdb      *badger.DB
+	once sync.Once
+	sdb  *badger.DB
 
 	cache = make(map[string]*Signer)
 	mu    sync.RWMutex
@@ -67,72 +60,4 @@ func GetSigner(pk string) *Signer {
 	cache[pk] = signer
 	mu.Unlock()
 	return signer
-}
-
-func StartSigninServer(cfg *config.Config, f func(fid uint64, signerUUid, pk string)) {
-	tmpl, err := template.New("signin").Parse(string(sinwhtml))
-	if err != nil {
-		log.Fatal("failed to parse template: ", err)
-	}
-	data := struct {
-		ClientID  string
-		PublicKey string
-	}{
-		ClientID: cfg.Neynar.ClientID,
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	mux := http.NewServeMux()
-	mux.HandleFunc("/signin", func(w http.ResponseWriter, r *http.Request) {
-		query := r.URL.Query()
-		pk := query.Get("pk")
-		if pk == "" {
-			w.Write([]byte("error: missing pk"))
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		data.PublicKey = pk
-		err := tmpl.Execute(w, data)
-		if err != nil {
-			log.Println("failed to execute template: ", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-	})
-	mux.HandleFunc("/signin/success", func(w http.ResponseWriter, r *http.Request) {
-		query := r.URL.Query()
-		pk := query.Get("pk")
-		if pk == "" {
-			w.Write([]byte("error: missing pk"))
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		fid, err := strconv.ParseUint(query.Get("fid"), 10, 64)
-		if err != nil {
-			w.Write([]byte("error: missing fid"))
-			cancel()
-			return
-		}
-		signerUUid := query.Get("signer_uuid")
-
-		f(fid, signerUUid, pk)
-		w.Write([]byte("success, you may now close the window"))
-		cancel()
-	})
-
-	srv := &http.Server{
-		Addr:    "0.0.0.0:8000",
-		Handler: mux,
-	}
-	// listener, err := net.Listen("tcp", srv.Addr)
-	log.Println("listening on :8000")
-	go func() {
-		if err := srv.ListenAndServe(); err != nil {
-			log.Println(err)
-		}
-	}()
-
-	<-ctx.Done()
-	srv.Shutdown(context.Background())
-
 }

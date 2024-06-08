@@ -156,7 +156,7 @@ func (m *CastFeedItem) Init() tea.Cmd { return nil }
 
 func (m *CastFeedItem) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m = &CastFeedItem{
-    app:     m.app,
+		app:     m.app,
 		cast:    m.cast,
 		channel: m.channel,
 		pfp:     m.pfp,

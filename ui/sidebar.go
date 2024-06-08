@@ -145,8 +145,10 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "enter" {
 			currentItem := m.nav.SelectedItem().(*sidebarItem)
 			if currentItem.name == "sign in" {
-        log.Println("sign in selected")
+				log.Println("sign in selected")
 				u := fmt.Sprintf("http://localhost:8000/signin?pk=%s", m.app.ctx.pk)
+				m.app.signinPrompt.SetContent(fmt.Sprintf("Please sign in at %s", u))
+				m.app.signinPrompt.SetActive(true)
 				return m, OpenURL(u)
 			}
 			if currentItem.name == "profile" {

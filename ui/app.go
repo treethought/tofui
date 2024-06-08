@@ -20,6 +20,10 @@ func NewStyle() lipgloss.Style {
 	return renderer.NewStyle()
 }
 
+type UpdateSignerMsg struct {
+	Signer *api.Signer
+}
+
 type navNameMsg struct {
 	name string
 }
@@ -65,11 +69,12 @@ type App struct {
 	showQuickSelect bool
 	publish         *PublishInput
 	statusLine      *StatusLine
+	signinPrompt    *SigninPrompt
 	help            *HelpView
 }
 
-func (a *App) GetSigner() *api.Signer {
-	return a.ctx.signer
+func (a *App) PublicKey() string {
+	return a.ctx.pk
 }
 
 func NewSSHApp(cfg *config.Config, s ssh.Session, r *lipgloss.Renderer) (*App, error) {
@@ -110,6 +115,7 @@ func NewApp(cfg *config.Config, ctx *AppContext) *App {
 	a.publish = NewPublishInput(a)
 	a.statusLine = NewStatusLine(a)
 	a.help = NewHelpView(a)
+	a.signinPrompt = NewSigninPrompt()
 	a.SetNavName("feed")
 
 	feed := NewFeedView(a)
@@ -148,6 +154,10 @@ func (a *App) SetFocus(name string) tea.Cmd {
 	if a.publish.Active() {
 		a.publish.SetActive(false)
 		a.publish.SetFocus(false)
+	}
+	if a.signinPrompt.Active() {
+		a.signinPrompt.SetActive(false)
+		a.signinPrompt.SetContent("")
 	}
 	if name == "" || name == a.focused {
 		return nil
@@ -214,11 +224,17 @@ func (a *App) propagateEvent(msg tea.Msg) tea.Cmd {
 	return nil
 }
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+
 	// log.Println("received msg type: ", reflect.TypeOf(msg))
 	var cmds []tea.Cmd
 	_, sbcmd := a.statusLine.Update(msg)
 	cmds = append(cmds, sbcmd)
 	switch msg := msg.(type) {
+	case *UpdateSignerMsg:
+		a.ctx.signer = msg.Signer
+		a.signinPrompt.SetActive(false)
+		log.Println("updated signer for: ", msg.Signer.Username)
+		return a, a.Init()
 	case navNameMsg:
 		a.SetNavName(msg.name)
 		return a, nil
@@ -287,6 +303,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		pw := wx - sx
 		py := wy - 10
 		a.publish.SetSize(pw, py)
+		a.signinPrompt.SetSize(pw, py)
 
 		hw := wx - sx
 		hy := wy - 10
@@ -321,6 +338,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case *currentAccountMsg:
 		_, cmd := a.sidebar.Update(msg)
+		return a, cmd
+	}
+	if a.signinPrompt.Active() {
+		_, cmd := a.signinPrompt.Update(msg)
 		return a, cmd
 	}
 	if a.publish.Active() {
@@ -362,6 +383,10 @@ func (a *App) View() string {
 	}
 	main := focus.View()
 	side := a.sidebar.View()
+
+	if a.signinPrompt.Active() {
+		main = a.signinPrompt.View()
+	}
 
 	if a.publish.Active() {
 		main = a.publish.View()
