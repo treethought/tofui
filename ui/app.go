@@ -1,14 +1,28 @@
 package ui
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"log"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/ssh"
 
-	"github.com/treethought/castr/api"
+	"github.com/treethought/tofui/api"
+	"github.com/treethought/tofui/config"
 )
+
+// TODO provide to models
+var renderer *lipgloss.Renderer = lipgloss.DefaultRenderer()
+
+func NewStyle() lipgloss.Style {
+	return renderer.NewStyle()
+}
+
+type UpdateSignerMsg struct {
+	Signer *api.Signer
+}
 
 type navNameMsg struct {
 	name string
@@ -34,8 +48,16 @@ type SelectCastMsg struct {
 	cast *api.Cast
 }
 
+type AppContext struct {
+	s      ssh.Session
+	signer *api.Signer
+	pk     string
+}
+
 type App struct {
 	models          map[string]tea.Model
+	ctx             *AppContext
+	client          *api.Client
 	focusedModel    tea.Model
 	focused         string
 	navname         string
@@ -47,20 +69,74 @@ type App struct {
 	showQuickSelect bool
 	publish         *PublishInput
 	statusLine      *StatusLine
+	signinPrompt    *SigninPrompt
 	help            *HelpView
 }
 
-func NewApp() *App {
+func (a *App) PublicKey() string {
+	return a.ctx.pk
+}
+
+func NewSSHApp(cfg *config.Config, s ssh.Session, r *lipgloss.Renderer) (*App, error) {
+	if r != nil {
+		renderer = r
+	}
+	if s.PublicKey() == nil {
+		return nil, fmt.Errorf("public key is nil")
+	}
+	// hash the pk so we can use it in auth flow
+	h := sha256.New()
+	pkBytes := s.PublicKey().Marshal()
+	h.Write(pkBytes)
+	pk := fmt.Sprintf("%x", h.Sum(nil))
+
+	signer := api.GetSigner(pk)
+	if signer != nil {
+		log.Println("logged in as: ", signer.Username)
+	}
+
+	ctx := &AppContext{s: s, pk: pk, signer: signer}
+	app := NewApp(cfg, ctx)
+	return app, nil
+}
+
+func NewLocalApp(cfg *config.Config) *App {
+	signer := api.GetSigner("local")
+	if signer != nil {
+		log.Println("logged in locally as: ", signer.Username)
+	}
+	ctx := &AppContext{signer: signer, pk: "local"}
+	app := NewApp(cfg, ctx)
+	return app
+}
+
+func NewApp(cfg *config.Config, ctx *AppContext) *App {
+	if ctx == nil {
+		ctx = &AppContext{}
+	}
 	a := &App{
 		models:      make(map[string]tea.Model),
 		showSidebar: true,
+		ctx:         ctx,
+		client:      api.NewClient(cfg),
 	}
 	a.sidebar = NewSidebar(a)
 	a.quickSelect = NewQuickSelect(a)
 	a.publish = NewPublishInput(a)
 	a.statusLine = NewStatusLine(a)
-	a.help = NewHelpView()
+	a.help = NewHelpView(a)
+	a.signinPrompt = NewSigninPrompt()
 	a.SetNavName("feed")
+
+	feed := NewFeedView(a)
+	a.Register("feed", feed)
+	a.SetFocus("feed")
+
+	castDetails := NewCastView(a, nil)
+	a.Register("cast", castDetails)
+
+	profile := NewProfile(a)
+	a.Register("profile", profile)
 	return a
 }
 
@@ -88,6 +164,10 @@ func (a *App) SetFocus(name string) tea.Cmd {
 	if a.publish.Active() {
 		a.publish.SetActive(false)
 		a.publish.SetFocus(false)
+	}
+	if a.signinPrompt.Active() {
+		a.signinPrompt.SetActive(false)
+		a.signinPrompt.SetContent("")
 	}
 	if name == "" || name == a.focused {
 		return nil
@@ -154,11 +234,17 @@ func (a *App) propagateEvent(msg tea.Msg) tea.Cmd {
 	return nil
 }
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+
 	// log.Println("received msg type: ", reflect.TypeOf(msg))
 	var cmds []tea.Cmd
 	_, sbcmd := a.statusLine.Update(msg)
 	cmds = append(cmds, sbcmd)
 	switch msg := msg.(type) {
+	case *UpdateSignerMsg:
+		a.ctx.signer = msg.Signer
+		a.signinPrompt.SetActive(false)
+		log.Println("updated signer for: ", msg.Signer.Username)
+		return a, a.Init()
 	case navNameMsg:
 		a.SetNavName(msg.name)
 		return a, nil
@@ -227,6 +313,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		pw := wx - sx
 		py := wy - 10
 		a.publish.SetSize(pw, py)
+		a.signinPrompt.SetSize(pw, py)
 
 		hw := wx - sx
 		hy := wy - 10
@@ -261,6 +348,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case *currentAccountMsg:
 		_, cmd := a.sidebar.Update(msg)
+		return a, cmd
+	}
+	if a.signinPrompt.Active() {
+		_, cmd := a.signinPrompt.Update(msg)
 		return a, cmd
 	}
 	if a.publish.Active() {
@@ -303,6 +394,10 @@ func (a *App) View() string {
 	main := focus.View()
 	side := a.sidebar.View()
 
+	if a.signinPrompt.Active() {
+		main = a.signinPrompt.View()
+	}
+
 	if a.publish.Active() {
 		main = a.publish.View()
 	}
@@ -310,7 +405,7 @@ func (a *App) View() string {
 		main = a.quickSelect.View()
 	}
 	if !a.showSidebar {
-		return lipgloss.NewStyle().Align(lipgloss.Center).Render(main)
+		return NewStyle().Align(lipgloss.Center).Render(main)
 	}
 
 	if a.help.IsFull() {

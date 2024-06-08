@@ -74,14 +74,13 @@ type PostCastResponse struct {
 	Cast    Cast
 }
 
-func (c *Client) PostCast(text, parent, channel string, parent_fid uint64) (*PostCastResponse, error) {
-	s := GetSigner()
-	if s == nil {
-		return nil, errors.New("no signer found")
+func (c *Client) PostCast(signer *Signer, text, parent, channel string, parent_fid uint64) (*PostCastResponse, error) {
+	if signer == nil {
+		return nil, errors.New("signer required")
 	}
 	payload := CastPayload{
 		Text:            text,
-		SignerUUID:      s.UUID,
+		SignerUUID:      signer.UUID,
 		Parent:          parent,
 		ChannelID:       channel,
 		ParentAuthorFID: parent_fid,
@@ -110,14 +109,13 @@ type Conversation struct {
 	Cast
 }
 
-func (c *Client) GetCastWithReplies(hash string) (*Cast, error) {
+func (c *Client) GetCastWithReplies(signer *Signer, hash string) (*Cast, error) {
 	path := "/cast/conversation"
 	opts := []RequestOption{
 		WithQuery("identifier", hash),
 		WithQuery("type", "hash"),
 		WithQuery("reply_depth", "10"),
 	}
-	signer := GetSigner()
 	if signer != nil {
 		opts = append(opts, WithQuery("viewer_fid", fmt.Sprintf("%d", signer.FID)))
 	}

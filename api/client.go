@@ -8,12 +8,14 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sync"
 
-	"github.com/treethought/castr/config"
+	"github.com/treethought/tofui/config"
 )
 
 var (
-	client *Client
+	client     *Client
+	clientOnce sync.Once
 )
 
 type NeynarError struct {
@@ -33,10 +35,6 @@ func (e NeynarError) Error() string {
 	return fmt.Sprintf("%s: %s", e.path, e.message)
 }
 
-func GetClient() *Client {
-	return client
-}
-
 type Client struct {
 	c              *http.Client
 	apiKey         string
@@ -46,12 +44,14 @@ type Client struct {
 }
 
 func NewClient(cfg *config.Config) *Client {
-	client = &Client{
-		c:        http.DefaultClient,
-		apiKey:   cfg.Neynar.APIKey,
-		baseURL:  cfg.Neynar.HubURL,
-		clientID: cfg.Neynar.ClientID,
-	}
+	clientOnce.Do(func() {
+		client = &Client{
+			c:        http.DefaultClient,
+			apiKey:   cfg.Neynar.APIKey,
+			baseURL:  cfg.Neynar.HubURL,
+			clientID: cfg.Neynar.ClientID,
+		}
+	})
 	return client
 }
 

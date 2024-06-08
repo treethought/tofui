@@ -1,16 +1,18 @@
 package db
 
 import (
-	"log"
+	"os"
 	"sync"
 	"time"
 
 	badger "github.com/dgraph-io/badger/v4"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
-	db   *DB
-	once sync.Once
+	db     *DB
+	once   sync.Once
+	dbPath = os.Getenv("DB_PATH")
 )
 
 func GetDB() *DB {
@@ -22,14 +24,37 @@ func GetDB() *DB {
 
 type DB struct {
 	db *badger.DB
+	lf *os.File
 }
 
 func NewDB() *DB {
-	b, err := badger.Open(badger.DefaultOptions("/tmp/castr"))
-	if err != nil {
-		log.Fatal(err)
+	path := dbPath
+	if path == "" {
+		path = "/tmp/tofui"
 	}
-	db := &DB{db: b}
+
+	err := os.MkdirAll(path, 0755)
+	if err != nil {
+		log.Fatalf("failed to create db directory: %v", err)
+	}
+
+	lfPath := path + "/db.log"
+
+	lf, err := os.Create(lfPath)
+	if err != nil {
+		log.Fatalf("failed to create db log file: %v", err)
+	}
+
+	logger := log.New()
+	logger.SetOutput(lf)
+	opts := badger.DefaultOptions(path)
+	opts.Logger = logger
+
+	b, err := badger.Open(opts)
+	if err != nil {
+		log.Fatal("failed to open db: ", err)
+	}
+	db := &DB{db: b, lf: lf}
 	go db.runGC()
 	return db
 }
@@ -49,6 +74,7 @@ func (db *DB) runGC() {
 
 func (db *DB) Close() {
 	db.db.Close()
+	db.lf.Close()
 }
 
 func (db *DB) Set(key, value []byte) error {

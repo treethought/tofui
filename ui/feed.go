@@ -10,11 +10,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/treethought/castr/api"
+	"github.com/treethought/tofui/api"
 )
 
 var (
-	docStyle = lipgloss.NewStyle().Margin(2, 2).Align(lipgloss.Center)
+	docStyle = NewStyle().Margin(2, 2).Align(lipgloss.Center)
 )
 
 type apiErrorMsg struct {
@@ -28,6 +28,7 @@ type reactMsg struct {
 }
 
 type FeedView struct {
+	app     *App
 	client  *api.Client
 	table   table.Model
 	items   []*CastFeedItem
@@ -65,19 +66,14 @@ func newTable() table.Model {
 	return t
 }
 
-func DefaultFeedParams() *api.FeedRequest {
-	return &api.FeedRequest{FeedType: "following", Limit: 100}
-}
-
-func NewFeedView(client *api.Client, req *api.FeedRequest) *FeedView {
+func NewFeedView(app *App) *FeedView {
 	p := progress.New()
 	p.ShowPercentage = false
 	return &FeedView{
-		client:      client,
+		app:         app,
 		table:       newTable(),
 		items:       []*CastFeedItem{},
 		loading:     NewLoading(),
-		req:         req,
 		showChannel: true,
 		showStats:   true,
 	}
@@ -122,9 +118,11 @@ func (m *FeedView) Init() tea.Cmd {
 	}
 
 	if m.req != nil {
-		cmds = append(cmds, getFeedCmd(m.req))
+		cmds = append(cmds, m.SetDefaultParams(), getFeedCmd(m.app.client, m.req))
+	} else {
+		cmds = append(cmds, getDefaultFeedCmd(m.app.client, m.app.ctx.signer))
 	}
-	return tea.Batch(cmds...)
+	return tea.Sequence(cmds...)
 }
 
 func (m *FeedView) Clear() {
@@ -135,21 +133,31 @@ func (m *FeedView) Clear() {
 	m.setItems(nil)
 }
 
-func likeCastCmd(cast *api.Cast) tea.Cmd {
+func likeCastCmd(client *api.Client, signer *api.Signer, cast *api.Cast) tea.Cmd {
 	return func() tea.Msg {
 		log.Println("liking cast", cast.Hash)
-		if err := api.GetClient().React(cast.Hash, "like"); err != nil {
+		if err := client.React(signer, cast.Hash, "like"); err != nil {
 			return apiErrorMsg{err}
 		}
 		return reactMsg{hash: cast.Hash, rtype: "like", state: true}
 	}
 }
-func getFeedCmd(req *api.FeedRequest) tea.Cmd {
+
+func getDefaultFeedCmd(client *api.Client, signer *api.Signer) tea.Cmd {
+	req := &api.FeedRequest{FeedType: "following", Limit: 100}
+	if signer != nil {
+		req.FID = signer.FID
+		req.ViewerFID = signer.FID
+	}
+	return getFeedCmd(client, req)
+}
+
+func getFeedCmd(client *api.Client, req *api.FeedRequest) tea.Cmd {
 	return func() tea.Msg {
 		if req.Limit == 0 {
 			req.Limit = 100
 		}
-		feed, err := api.GetClient().GetFeed(req)
+		feed, err := client.GetFeed(req)
 		if err != nil {
 			log.Println("feedview error getting feed", err)
 			return err
@@ -159,15 +167,22 @@ func getFeedCmd(req *api.FeedRequest) tea.Cmd {
 }
 
 func (m *FeedView) SetDefaultParams() tea.Cmd {
+	var fid uint64
+	if m.app.ctx.signer != nil {
+		fid = m.app.ctx.signer.FID
+	}
 	return tea.Sequence(
 		m.setItems(nil),
-		getFeedCmd(&api.FeedRequest{FeedType: "following", Limit: 100}),
+		getFeedCmd(m.app.client, &api.FeedRequest{
+			FeedType: "following", Limit: 100,
+			FID: fid, ViewerFID: fid,
+		}),
 	)
 }
 func (m *FeedView) SetParams(req *api.FeedRequest) tea.Cmd {
 	return tea.Sequence(
 		m.setItems(nil),
-		getFeedCmd(req),
+		getFeedCmd(m.app.client, req),
 	)
 }
 
@@ -175,7 +190,7 @@ func (m *FeedView) setItems(casts []*api.Cast) tea.Cmd {
 	rows := []table.Row{}
 	cmds := []tea.Cmd{}
 	for _, cast := range casts {
-		ci, cmd := NewCastFeedItem(cast, true)
+		ci, cmd := NewCastFeedItem(m.app, cast, true)
 		m.items = append(m.items, ci)
 		if cmd != nil {
 			cmds = append(cmds, cmd)
@@ -262,12 +277,15 @@ func (m *FeedView) ViewCurrentChannel() tea.Cmd {
 	m.Clear()
 
 	cmds := []tea.Cmd{}
-	if c, err := api.GetClient().GetChannelByParentUrl(current.cast.ParentURL); err == nil {
+	if c, err := m.client.GetChannelByParentUrl(current.cast.ParentURL); err == nil {
 		cmds = append(cmds, navNameCmd(fmt.Sprintf("channel: %s", c.Name)))
 	}
 	cmds = append(cmds,
 		focusCmd("feed"),
-		getFeedCmd(&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: current.cast.ParentURL, Limit: 100}),
+		getFeedCmd(m.client, &api.FeedRequest{
+			FeedType: "filter", FilterType: "parent_url",
+			ParentURL: current.cast.ParentURL, Limit: 100},
+		),
 	)
 
 	return tea.Sequence(cmds...)
@@ -281,7 +299,7 @@ func (m *FeedView) LikeCurrentItem() tea.Cmd {
 	if current.cast.Hash == "" {
 		return nil
 	}
-	return likeCastCmd(current.cast)
+	return likeCastCmd(m.app.client, m.app.ctx.signer, current.cast)
 }
 
 func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

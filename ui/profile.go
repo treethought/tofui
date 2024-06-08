@@ -7,7 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/treethought/castr/api"
+	"github.com/treethought/tofui/api"
 )
 
 func UserBio(user *api.User) string {
@@ -17,16 +17,16 @@ func UserBio(user *api.User) string {
 		return l.View()
 	}
 	stats := lipgloss.JoinHorizontal(lipgloss.Top,
-		lipgloss.NewStyle().Bold(true).Render(fmt.Sprintf("%d", user.FollowingCount)),
-		lipgloss.NewStyle().MarginRight(10).Render(" following"),
-		lipgloss.NewStyle().Bold(true).Render(fmt.Sprintf("%d", user.FollowerCount)),
-		lipgloss.NewStyle().Render(" followers"),
+		NewStyle().Bold(true).Render(fmt.Sprintf("%d", user.FollowingCount)),
+		NewStyle().MarginRight(10).Render(" following"),
+		NewStyle().Bold(true).Render(fmt.Sprintf("%d", user.FollowerCount)),
+		NewStyle().Render(" followers"),
 	)
 
-	style := lipgloss.NewStyle().BorderStyle(lipgloss.ThickBorder()).BorderBottom(true).Padding(2)
+	style := NewStyle().BorderStyle(lipgloss.ThickBorder()).BorderBottom(true).Padding(2)
 
 	return style.Render(lipgloss.JoinVertical(lipgloss.Top,
-		lipgloss.NewStyle().MarginTop(0).MarginBottom(0).Padding(0).Render(user.Profile.Bio.Text),
+		NewStyle().MarginTop(0).MarginBottom(0).Padding(0).Render(user.Profile.Bio.Text),
 		stats,
 	))
 
@@ -43,28 +43,39 @@ type ProfileMsg struct {
 }
 
 type Profile struct {
+	app  *App
 	user *api.User
 	pfp  *ImageModel
 	feed *FeedView
 }
 
-func NewProfile() *Profile {
+func NewProfile(app *App) *Profile {
 	return &Profile{
+		app:  app,
 		pfp:  NewImage(false, true, special),
-		feed: NewFeedView(api.GetClient(), nil),
+		feed: NewFeedView(app),
 	}
 }
 
-func getUserCmd(fid uint64) tea.Cmd {
+func getUserCmd(client *api.Client, fid, viewer uint64) tea.Cmd {
 	return func() tea.Msg {
 		log.Println("get user by fid cmd", fid)
-		user, err := api.GetClient().GetUserByFID(fid)
+		user, err := client.GetUserByFID(fid, viewer)
 		return ProfileMsg{fid, user, err}
 	}
 }
 
 func (m *Profile) SetFID(fid uint64) tea.Cmd {
-	return tea.Batch(getUserCmd(fid), getFeedCmd(&api.FeedRequest{FeedType: "filter", FilterType: "fids", Limit: 100, FIDs: []uint64{fid}}))
+	var viewer uint64
+	if m.app.ctx.signer != nil {
+		viewer = m.app.ctx.signer.FID
+	}
+	return tea.Batch(
+		getUserCmd(m.app.client, fid, viewer),
+		getFeedCmd(m.app.client, &api.FeedRequest{
+			FeedType: "filter", FilterType: "fids", Limit: 100,
+			FIDs: []uint64{fid}, ViewerFID: viewer, FID: viewer,
+		}))
 }
 
 func (m *Profile) Init() tea.Cmd {
@@ -104,7 +115,7 @@ func (m *Profile) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 func (m *Profile) View() string {
 
-	// profile := lipgloss.NewStyle().MaxHeight(2).Render(lipgloss.JoinHorizontal(lipgloss.Left,
+	// profile := NewStyle().MaxHeight(2).Render(lipgloss.JoinHorizontal(lipgloss.Left,
 	//   UsernameHeader(m.user, m.pfp),
 	//   UserBio(m.user),
 	//   )

@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/treethought/castr/api"
+	"github.com/treethought/tofui/api"
 )
 
 const (
@@ -21,23 +21,23 @@ var (
 	highlight = lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
 	special   = lipgloss.AdaptiveColor{Light: "#43BF6D", Dark: "#73F59F"}
 
-	displayNameStyle = lipgloss.NewStyle().
+	displayNameStyle = NewStyle().
 				MarginRight(5).
 				Foreground(highlight)
 
-	usernameStyle = lipgloss.NewStyle()
+	usernameStyle = NewStyle()
 
-	imgStyle = lipgloss.NewStyle()
+	imgStyle = NewStyle()
 
-	headerStyle = lipgloss.NewStyle().BorderBottom(true)
+	headerStyle = NewStyle().BorderBottom(true)
 
-	infoStyle = lipgloss.NewStyle().
+	infoStyle = NewStyle().
 			MarginLeft(5).MarginRight(5).
 			BorderStyle(lipgloss.NormalBorder()).
 			BorderTop(true).
 			BorderForeground(subtle).AlignHorizontal(lipgloss.Center)
 
-	contentStyle = lipgloss.NewStyle()
+	contentStyle = NewStyle()
 
 	md, _ = glamour.NewTermRenderer(
 		// detect background color and pick either the default dark or light theme
@@ -74,12 +74,12 @@ func CastStats(cast *api.Cast, margin int) string {
 		liked = EmojiLike
 	}
 	stats := lipgloss.JoinHorizontal(lipgloss.Top,
-		lipgloss.NewStyle().Render(fmt.Sprintf("%d ", cast.Replies.Count)),
-		lipgloss.NewStyle().MarginRight(margin).Render(EmojiComment),
-		lipgloss.NewStyle().Render(fmt.Sprintf("%d ", cast.Reactions.LikesCount)),
-		lipgloss.NewStyle().MarginRight(margin).Render(liked),
-		lipgloss.NewStyle().Render(fmt.Sprintf("%d ", cast.Reactions.RecastsCount)),
-		lipgloss.NewStyle().MarginRight(margin).Render(EmojiRecyle),
+		NewStyle().Render(fmt.Sprintf("%d ", cast.Replies.Count)),
+		NewStyle().MarginRight(margin).Render(EmojiComment),
+		NewStyle().Render(fmt.Sprintf("%d ", cast.Reactions.LikesCount)),
+		NewStyle().MarginRight(margin).Render(liked),
+		NewStyle().Render(fmt.Sprintf("%d ", cast.Reactions.RecastsCount)),
+		NewStyle().MarginRight(margin).Render(EmojiRecyle),
 	)
 	return stats
 
@@ -96,12 +96,12 @@ func CastContent(cast *api.Cast, maxHeight int, imgs ...ImageModel) string {
 	return contentStyle.MaxHeight(maxHeight).Render(m)
 }
 
-func getCastChannelCmd(cast *api.Cast) tea.Cmd {
+func getCastChannelCmd(client *api.Client, cast *api.Cast) tea.Cmd {
 	return func() tea.Msg {
 		if cast.ParentURL == "" {
 			return nil
 		}
-		ch, err := api.GetClient().GetChannelByParentUrl(cast.ParentURL)
+		ch, err := client.GetChannelByParentUrl(cast.ParentURL)
 		if err != nil {
 			return channelInfoErrMsg{err, cast.Hash, cast.ParentURL}
 		}
@@ -121,6 +121,7 @@ type channelInfoErrMsg struct {
 }
 
 type CastFeedItem struct {
+	app        *App
 	cast       *api.Cast
 	channel    string
 	channelURL string
@@ -130,8 +131,9 @@ type CastFeedItem struct {
 
 // NewCastFeedItem displays a cast in compact form within a list
 // implements list.Item (and tea.Model only for updating image)
-func NewCastFeedItem(cast *api.Cast, compact bool) (*CastFeedItem, tea.Cmd) {
+func NewCastFeedItem(app *App, cast *api.Cast, compact bool) (*CastFeedItem, tea.Cmd) {
 	c := &CastFeedItem{
+		app:     app,
 		cast:    cast,
 		pfp:     NewImage(true, true, special),
 		compact: compact,
@@ -139,7 +141,7 @@ func NewCastFeedItem(cast *api.Cast, compact bool) (*CastFeedItem, tea.Cmd) {
 
 	cmds := []tea.Cmd{
 		c.pfp.SetURL(cast.Author.PfpURL, false),
-		getCastChannelCmd(cast),
+		getCastChannelCmd(app.client, cast),
 	}
 
 	if c.compact {
@@ -154,6 +156,7 @@ func (m *CastFeedItem) Init() tea.Cmd { return nil }
 
 func (m *CastFeedItem) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m = &CastFeedItem{
+		app:     m.app,
 		cast:    m.cast,
 		channel: m.channel,
 		pfp:     m.pfp,

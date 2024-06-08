@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"log"
 	"os/exec"
 	"runtime"
 
@@ -8,14 +9,15 @@ import (
 )
 
 var (
-  EmojiLike = "❤️"
-  EmojiEmptyLike = "🤍"
-  EmojiRecyle = "♻️"
-  EmojiComment = "💬"
+	EmojiLike      = "❤️"
+	EmojiEmptyLike = "🤍"
+	EmojiRecyle    = "♻️"
+	EmojiComment   = "💬"
 )
 
 func OpenURL(url string) tea.Cmd {
 	return func() tea.Msg {
+		log.Println("Opening URL: ", url)
 		var cmd string
 		var args []string
 

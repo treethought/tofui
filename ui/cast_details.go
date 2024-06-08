@@ -7,12 +7,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/treethought/castr/api"
+	"github.com/treethought/tofui/api"
 )
 
-var style = lipgloss.NewStyle().Margin(2,2).BorderStyle(lipgloss.RoundedBorder()).Border(lipgloss.RoundedBorder(), true)
+var style = NewStyle().Margin(2, 2).BorderStyle(lipgloss.RoundedBorder()).Border(lipgloss.RoundedBorder(), true)
 
 type CastView struct {
+	app     *App
 	cast    *api.Cast
 	img     *ImageModel
 	pfp     *ImageModel
@@ -22,15 +23,16 @@ type CastView struct {
 	pubReply *PublishInput
 }
 
-func NewCastView(cast *api.Cast) *CastView {
+func NewCastView(app *App, cast *api.Cast) *CastView {
 	vp := viewport.New(0, 0)
 	c := &CastView{
+		app:      app,
 		cast:     cast,
 		pfp:      NewImage(false, true, special),
 		img:      NewImage(true, true, special),
-		replies:  NewRepliesView(),
+		replies:  NewRepliesView(app),
 		vp:       &vp,
-		pubReply: NewPublishInput(nil),
+		pubReply: NewPublishInput(app),
 	}
 	return c
 }
@@ -97,7 +99,7 @@ func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, OpenURL(fmt.Sprintf("https://warpcast.com/%s/%s", m.cast.Author.Username, m.cast.Hash))
 		}
 		if msg.String() == "l" {
-			return m, likeCastCmd(m.cast)
+			return m, likeCastCmd(m.app.client, m.app.ctx.signer, m.cast)
 		}
 		if msg.String() == "C" {
 			m.pubReply.SetActive(true)
@@ -132,7 +134,7 @@ func (m *CastView) View() string {
 	return style.Render(
 		lipgloss.JoinVertical(lipgloss.Center,
 			UsernameHeader(&m.cast.Author, m.pfp),
-			lipgloss.NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderBottom(true).Padding(0).Render(CastStats(m.cast, 10)),
+			NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderBottom(true).Padding(0).Render(CastStats(m.cast, 10)),
 			// CastContent(m.cast, 10),
 			m.vp.View(),
 			m.img.View(),

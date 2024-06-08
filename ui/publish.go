@@ -11,7 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/treethought/castr/api"
+	"github.com/treethought/tofui/api"
 )
 
 const confirmPrefix = "Publish cast? (y/n)"
@@ -26,9 +26,9 @@ type ctxInfoMsg struct {
 	channel *api.Channel
 }
 
-func postCastCmd(text, parent, channel string, parentAuthor uint64) tea.Cmd {
+func postCastCmd(client *api.Client, signer *api.Signer, text, parent, channel string, parentAuthor uint64) tea.Cmd {
 	return func() tea.Msg {
-		resp, err := api.GetClient().PostCast(text, parent, channel, parentAuthor)
+		resp, err := client.PostCast(signer, text, parent, channel, parentAuthor)
 		if err != nil {
 			return &postResponseMsg{err: err}
 		}
@@ -72,6 +72,7 @@ type ctx struct {
 }
 
 type PublishInput struct {
+	app         *App
 	keys        keyMap
 	help        help.Model
 	ta          *textarea.Model
@@ -84,7 +85,11 @@ type PublishInput struct {
 
 func NewPublishInput(app *App) *PublishInput {
 	ta := textarea.New()
-	ta.Placeholder = "publish cast..."
+	if app.ctx.signer == nil {
+		ta.Placeholder = "please sign in to post"
+	} else {
+		ta.Placeholder = "publish cast..."
+	}
 	ta.CharLimit = 320
 	ta.ShowLineNumbers = false
 	ta.Prompt = ""
@@ -92,7 +97,7 @@ func NewPublishInput(app *App) *PublishInput {
 	vp := viewport.New(0, 0)
 	vp.SetContent(ta.View())
 
-	return &PublishInput{ta: &ta, vp: &vp, keys: keys, help: help.New()}
+	return &PublishInput{ta: &ta, vp: &vp, keys: keys, help: help.New(), app: app}
 }
 
 func (m *PublishInput) Init() tea.Cmd {
@@ -121,12 +126,16 @@ func (m *PublishInput) SetContext(parent, channel string, parentAuthor uint64) t
 		m.ctx.parent = parent
 		m.ctx.parentAuthor = parentAuthor
 		m.ctx.parentUser = nil
-		parentUser, err := api.GetClient().GetUserByFID(parentAuthor)
+		var viewer uint64
+		if m.app.ctx.signer != nil {
+			viewer = m.app.ctx.signer.FID
+		}
+		parentUser, err := m.app.client.GetUserByFID(parentAuthor, viewer)
 		if err != nil {
 			log.Println("error getting parent author: ", err)
 			return nil
 		}
-		channel, err := api.GetClient().GetChannelByParentUrl(channel)
+		channel, err := m.app.client.GetChannelByParentUrl(channel)
 		if err != nil {
 			log.Println("error getting channel: ", err)
 			return nil
@@ -160,11 +169,11 @@ func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case *postResponseMsg:
 		if msg.err != nil {
 			log.Println("error posting cast: ", msg.err)
-			m.vp.SetContent(lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000")).Render("error posting cast!"))
+			m.vp.SetContent(NewStyle().Foreground(lipgloss.Color("#ff0000")).Render("error posting cast!"))
 			return m, nil
 		}
 		if msg.resp == nil || !msg.resp.Success {
-			m.vp.SetContent(lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000")).Render("error posting cast!"))
+			m.vp.SetContent(NewStyle().Foreground(lipgloss.Color("#ff0000")).Render("error posting cast!"))
 			return m, nil
 		}
 		log.Println("cast posted: ", msg.resp.Cast.Hash)
@@ -187,12 +196,20 @@ func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if m.showConfirm {
 			if msg.String() == "y" || msg.String() == "Y" {
-				return m, postCastCmd(m.ta.Value(), m.ctx.parent, m.ctx.channel, m.ctx.parentAuthor)
+				return m, postCastCmd(
+					m.app.client, m.app.ctx.signer,
+					m.ta.Value(), m.ctx.parent, m.ctx.channel, m.ctx.parentAuthor,
+				)
 			} else if msg.String() == "n" || msg.String() == "N" || msg.String() == "esc" {
 				m.showConfirm = false
 				return m, nil
 			}
 		}
+	}
+	if m.app.ctx.signer == nil {
+		m.ta.Blur()
+		m.ta.SetValue("please sign in to post")
+		return m, nil
 	}
 
 	ta, cmd := m.ta.Update(msg)
@@ -201,7 +218,7 @@ func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *PublishInput) viewConfirm() string {
-	header := lipgloss.NewStyle().BorderBottom(true).BorderStyle(lipgloss.NormalBorder()).Render(confirmPrefix)
+	header := NewStyle().BorderBottom(true).BorderStyle(lipgloss.NormalBorder()).Render(confirmPrefix)
 	return lipgloss.JoinVertical(lipgloss.Top,
 		header, m.ta.View())
 }
@@ -224,7 +241,7 @@ func (m *PublishInput) View() string {
 		titleText = fmt.Sprintf("publish cast to channel: /%s", m.ctx.channel)
 	}
 
-	titleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#874BFD")).BorderBottom(true).BorderStyle(lipgloss.NormalBorder())
+	titleStyle := NewStyle().Foreground(lipgloss.Color("#874BFD")).BorderBottom(true).BorderStyle(lipgloss.NormalBorder())
 	title := titleStyle.Render(titleText)
 
 	dialog := lipgloss.Place(m.w/2, m.h/2,

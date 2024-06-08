@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/treethought/castr/db"
+	"github.com/treethought/tofui/db"
 )
 
 type ChannelsResponse struct {

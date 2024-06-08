@@ -10,8 +10,8 @@
     function onSignInSuccess(data) {
       console.log("Sign-in success");
       window.location.href =
-        "http://localhost:8000/signin/success?fid=" +
-        data.fid +
+        "http://localhost:8000/signin/success?pk={{.PublicKey}}" +
+        "&fid=" + data.fid +
         "&signer_uuid=" +
         data.signer_uuid;
     }

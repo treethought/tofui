@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"log"
 )
 
 type FeedRequest struct {
@@ -17,10 +18,7 @@ type FeedRequest struct {
 }
 
 func (r *FeedRequest) opts() []RequestOption {
-	viewer := GetSigner().FID
-	if r.FID == 0 {
-		r.FID = viewer
-	}
+  log.Println("FeedRequest.opts()")
 	var opts []RequestOption
 	if r.FeedType != "" {
 		opts = append(opts, WithQuery("feed_type", r.FeedType))
@@ -37,11 +35,7 @@ func (r *FeedRequest) opts() []RequestOption {
 		}
 	}
 	if r.FeedType == "following" {
-		if r.FID == 0 {
-			opts = append(opts, WithQuery("fid", fmt.Sprintf("%d", viewer)))
-		} else {
-			opts = append(opts, WithQuery("fid", fmt.Sprintf("%d", r.FID)))
-		}
+		opts = append(opts, WithQuery("fid", fmt.Sprintf("%d", r.FID)))
 	}
 	if r.Cursor != "" {
 		opts = append(opts, WithQuery("cursor", r.Cursor))
@@ -49,8 +43,17 @@ func (r *FeedRequest) opts() []RequestOption {
 	if r.Limit != 0 {
 		opts = append(opts, WithQuery("limit", fmt.Sprintf("%d", r.Limit)))
 	}
-
-	opts = append(opts, WithQuery("viewer_fid", fmt.Sprintf("%d", viewer)))
+	if r.ViewerFID == 0 {
+		if r.FID != 0 {
+			r.ViewerFID = r.FID
+      log.Println("using fid param for viewer for feed request: ", r.FID)
+		} else {
+			log.Println("using default viewer fid 3 for feed request")
+			r.ViewerFID = 3
+		}
+	}
+	log.Println("r.ViewerFID", r.ViewerFID, " ", r.FID)
+	opts = append(opts, WithQuery("viewer_fid", fmt.Sprintf("%d", r.ViewerFID)))
 
 	return opts
 }
@@ -60,6 +63,7 @@ type FeedResponse struct {
 }
 
 func (c *Client) GetFeed(r *FeedRequest) (*FeedResponse, error) {
+  log.Println("GetFeed()")
 	path := "/feed"
 	opts := r.opts()
 	var resp FeedResponse

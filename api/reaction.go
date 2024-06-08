@@ -24,11 +24,9 @@ type ReactionResponse struct {
 	Message string
 }
 
-func (c *Client) React(cast string, t ReactionType) error {
-	s := GetSigner()
+func (c *Client) React(s *Signer, cast string, t ReactionType) error {
 	if s == nil {
-		log.Println("no signer found")
-		return errors.New("no signer found")
+		return errors.New("signer required")
 	}
 
 	var payload = ReactionRequest{

@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/treethought/castr/api"
+	"github.com/treethought/tofui/api"
 )
 
 type Sidebar struct {
@@ -24,13 +24,12 @@ type currentAccountMsg struct {
 	account *api.User
 }
 
-func getCurrentAccount() tea.Cmd {
+func getCurrentAccount(client *api.Client, signer *api.Signer) tea.Cmd {
 	return func() tea.Msg {
-		signer := api.GetSigner()
 		if signer == nil {
 			return nil
 		}
-		user, err := api.GetClient().GetUserByFID(signer.FID)
+		user, err := client.GetUserByFID(signer.FID, signer.FID)
 		if err != nil {
 			log.Println("error getting current account: ", err)
 			return nil
@@ -60,7 +59,7 @@ func (i *sidebarItem) Description() string {
 	return ""
 }
 
-var navStyle = lipgloss.NewStyle().Margin(2, 2, 0, 2).BorderRight(true).BorderStyle(lipgloss.RoundedBorder())
+var navStyle = NewStyle().Margin(2, 2, 0, 2).BorderRight(true).BorderStyle(lipgloss.RoundedBorder())
 
 func NewSidebar(app *App) *Sidebar {
 	d := list.NewDefaultDelegate()
@@ -71,7 +70,7 @@ func NewSidebar(app *App) *Sidebar {
 	l.KeyMap.CursorUp.SetKeys("k", "up")
 	l.KeyMap.CursorDown.SetKeys("j", "down")
 	l.KeyMap.Quit.SetKeys("ctrl+c")
-	l.Title = "castr"
+	l.Title = "tofui"
 	l.SetShowTitle(true)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
@@ -100,18 +99,26 @@ func (m *Sidebar) SetActive(active bool) {
 
 func (m *Sidebar) navHeader() []list.Item {
 	items := []list.Item{}
-	items = append(items, &sidebarItem{name: "profile", value: fmt.Sprintf("%d", api.GetSigner().FID)})
-	items = append(items, &sidebarItem{name: "feed", value: fmt.Sprintf("%d", api.GetSigner().FID)})
+	if api.GetSigner(m.app.ctx.pk) != nil {
+		items = append(items, &sidebarItem{name: "profile"})
+	} else {
+		items = append(items, &sidebarItem{name: "sign in"})
+	}
+	items = append(items, &sidebarItem{name: "feed"})
 	items = append(items, &sidebarItem{name: "--channels---", value: "--channels--", icon: "🏠"})
 	return items
 }
 
 func (m *Sidebar) Init() tea.Cmd {
 	log.Println("sidebar init")
+	var fid uint64
+	if m.app.ctx.signer != nil {
+		fid = m.app.ctx.signer.FID
+	}
 	return tea.Batch(
 		m.nav.SetItems(m.navHeader()),
-		getChannelsCmd(true),
-		getCurrentAccount(),
+		getChannelsCmd(m.app.client, true, fid),
+		getCurrentAccount(m.app.client, m.app.ctx.signer),
 		m.pfp.Init(),
 	)
 }
@@ -137,10 +144,17 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.String() == "enter" {
 			currentItem := m.nav.SelectedItem().(*sidebarItem)
+			if currentItem.name == "sign in" {
+				log.Println("sign in selected")
+				u := fmt.Sprintf("http://localhost:8000/signin?pk=%s", m.app.ctx.pk)
+				m.app.signinPrompt.SetContent(fmt.Sprintf("Please sign in at %s", u))
+				m.app.signinPrompt.SetActive(true)
+				return m, OpenURL(u)
+			}
 			if currentItem.name == "profile" {
 				m.SetActive(false)
 				log.Println("profile selected")
-				fid := api.GetSigner().FID
+				fid := api.GetSigner(m.app.ctx.pk).FID
 				if fid == 0 {
 					return m, nil
 				}
@@ -149,12 +163,16 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if currentItem.name == "feed" {
 				m.SetActive(false)
 				log.Println("feed selected")
-				return m, tea.Sequence(m.app.SetFocus("feed"), getFeedCmd(DefaultFeedParams()))
+				return m, tea.Sequence(m.app.SetFocus("feed"), getDefaultFeedCmd(m.app.client, m.app.ctx.signer))
 			}
 			if currentItem.itype == "channel" {
 				m.SetActive(false)
 				m.app.SetNavName(fmt.Sprintf("channel: %s", currentItem.name))
-				return m, tea.Sequence(m.app.SetFocus("feed"), getFeedCmd(&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: currentItem.value, Limit: 100}))
+				return m, tea.Sequence(
+					m.app.SetFocus("feed"),
+					getFeedCmd(m.app.client,
+						&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: currentItem.value, Limit: 100}),
+				)
 			}
 		}
 	case *currentAccountMsg:
@@ -179,7 +197,7 @@ func (m *Sidebar) View() string {
 		return navStyle.Render(m.nav.View())
 	}
 
-	accountStyle := lipgloss.NewStyle().
+	accountStyle := NewStyle().
 		Border(lipgloss.RoundedBorder(), true, false, true).
 		Width(m.w).
 		MaxWidth(m.w).

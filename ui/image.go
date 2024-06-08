@@ -27,7 +27,7 @@ import (
 	_ "golang.org/x/image/tiff"
 	_ "golang.org/x/image/webp"
 
-	"github.com/treethought/castr/db"
+	"github.com/treethought/tofui/db"
 )
 
 type imageDownloadMsg struct {
@@ -71,7 +71,7 @@ func ToString(width int, img image.Image) string {
 			color1 := lipgloss.Color(c1.Hex())
 			c2, _ := colorful.MakeColor(img.At(x, heightCounter+1))
 			color2 := lipgloss.Color(c2.Hex())
-			str.WriteString(lipgloss.NewStyle().Foreground(color1).
+			str.WriteString(NewStyle().Foreground(color1).
 				Background(color2).Render("▀"))
 		}
 
@@ -235,7 +235,7 @@ func NewImage(active, borderless bool, borderColor lipgloss.AdaptiveColor) *Imag
 		border = lipgloss.HiddenBorder()
 	}
 
-	viewPort.Style = lipgloss.NewStyle().
+	viewPort.Style = NewStyle().
 		PaddingLeft(padding).
 		PaddingRight(padding).
 		Border(border).
@@ -288,7 +288,7 @@ func (m *ImageModel) SetSize(w, h int) tea.Cmd {
 		border = lipgloss.HiddenBorder()
 	}
 
-	m.Viewport.Style = lipgloss.NewStyle().
+	m.Viewport.Style = NewStyle().
 		PaddingLeft(padding).
 		PaddingRight(padding).
 		Border(border).
@@ -338,7 +338,7 @@ func (m *ImageModel) Update(msg tea.Msg) (*ImageModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case convertImageToStringMsg:
 		if msg.url == m.URL && msg.str != "" {
-			m.ImageString = lipgloss.NewStyle().
+			m.ImageString = NewStyle().
 				// Width(m.Viewport.Width).
 				// Height(m.Viewport.Height).
 				Render(msg.str)
@@ -346,7 +346,7 @@ func (m *ImageModel) Update(msg tea.Msg) (*ImageModel, tea.Cmd) {
 		}
 	case downloadError:
 		if msg.url == m.URL {
-			m.ImageString = lipgloss.NewStyle().
+			m.ImageString = NewStyle().
 				Width(m.Viewport.Width).
 				Height(m.Viewport.Height).
 				Render("Error: " + msg.err.Error())
@@ -354,7 +354,7 @@ func (m *ImageModel) Update(msg tea.Msg) (*ImageModel, tea.Cmd) {
 	case decodeError:
 		if msg.url == m.URL {
 			log.Println("decode error: ", msg.url, msg.err.Error())
-			m.ImageString = lipgloss.NewStyle().
+			m.ImageString = NewStyle().
 				Width(m.Viewport.Width).
 				Height(m.Viewport.Height).
 				Render("Error: " + msg.err.Error())
@@ -372,7 +372,7 @@ func (m ImageModel) View() string {
 		border = lipgloss.HiddenBorder()
 	}
 
-	m.Viewport.Style = lipgloss.NewStyle().
+	m.Viewport.Style = NewStyle().
 		PaddingLeft(padding).
 		PaddingRight(padding).
 		Border(border).

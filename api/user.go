@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/treethought/castr/db"
+	"github.com/treethought/tofui/db"
 )
 
 type Profile struct {
@@ -44,7 +44,7 @@ type User struct {
 	ViewerContext     ViewerContext     `json:"viewer_context"`
 }
 
-func (c *Client) GetUserByFID(fid uint64) (*User, error) {
+func (c *Client) GetUserByFID(fid uint64, viewer uint64) (*User, error) {
 	key := fmt.Sprintf("user:%d", fid)
 	cached, err := db.GetDB().Get([]byte(key))
 	if err == nil {
@@ -55,11 +55,7 @@ func (c *Client) GetUserByFID(fid uint64) (*User, error) {
 		log.Println("got cached user: ", u.Username)
 		return u, nil
 	}
-	signer := GetSigner()
-	var viewer uint64
-	if signer != nil {
-		viewer = signer.FID
-	}
+
 	path := "/user/bulk"
 
 	opts := []RequestOption{
