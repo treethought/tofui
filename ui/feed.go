@@ -224,7 +224,7 @@ func selectCast(cast *api.Cast) tea.Cmd {
 
 func (m *FeedView) getCurrentItem() *CastFeedItem {
 	row := m.table.Cursor()
-	if row >= len(m.items) {
+	if row < 0 || row >= len(m.items) {
 		return nil
 	}
 	return m.items[row]

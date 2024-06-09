@@ -373,6 +373,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		_, cmd := a.sidebar.Update(msg)
 		return a, cmd
 	}
+	_, scmd := a.sidebar.pfp.Update(msg)
+	cmds = append(cmds, scmd)
 
 	current := a.GetFocused()
 	if current == nil {
