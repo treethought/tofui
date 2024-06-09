@@ -4,3 +4,4 @@ config.yaml
 tofui
 
 dist/
+.tofui

@@ -8,15 +8,15 @@ var (
 )
 
 func SetHeight(h int) {
-  Height.Store(int32(h))
+	Height.Store(int32(h))
 }
 func GetHeight() int {
-  return int(Height.Load())
+	return int(Height.Load())
 }
 
 func SetWidth(w int) {
-  Width.Store(int32(w))
+	Width.Store(int32(w))
 }
 func GetWidth() int {
-  return int(Width.Load())
+	return int(Width.Load())
 }

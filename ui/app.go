@@ -58,6 +58,7 @@ type App struct {
 	models          map[string]tea.Model
 	ctx             *AppContext
 	client          *api.Client
+	cfg             *config.Config
 	focusedModel    tea.Model
 	focused         string
 	navname         string
@@ -120,6 +121,7 @@ func NewApp(cfg *config.Config, ctx *AppContext) *App {
 		showSidebar: true,
 		ctx:         ctx,
 		client:      api.NewClient(cfg),
+		cfg:         cfg,
 	}
 	a.sidebar = NewSidebar(a)
 	a.quickSelect = NewQuickSelect(a)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
@@ -16,6 +17,7 @@ import (
 var (
 	configPath = os.Getenv("CONFIG_FILE")
 	cfg        *config.Config
+	logFile    *os.File
 )
 
 var rootCmd = &cobra.Command{
@@ -28,6 +30,8 @@ var rootCmd = &cobra.Command{
 }
 
 func runLocal() {
+	defer logFile.Close()
+	defer db.GetDB().Close()
 	sv := &Server{
 		prgmSessions: make(map[string][]*tea.Program),
 	}
@@ -42,30 +46,47 @@ func runLocal() {
 }
 
 func Execute() {
-	f, err := tea.LogToFile("debug.log", "debug")
-	if err != nil {
-		fmt.Println("fatal:", err)
-		os.Exit(1)
-	}
-	defer f.Close()
-
-	db := db.GetDB()
-	defer db.Close()
-
-	err = rootCmd.Execute()
+	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
 	}
 }
 
 func init() {
+	cobra.OnInitialize(initConfig)
+	rootCmd.PersistentFlags().StringVarP(&configPath, "config", "c", "", "config file (default is $HOME/.tofui.yaml)")
+}
+
+func initConfig() {
 	os.MkdirAll("/tmp/tofui", 0755)
 	var err error
 	if configPath == "" {
-		configPath = "config.yaml"
+		if _, err := os.Stat("config.yaml"); err == nil {
+			configPath = "config.yaml"
+		} else {
+			configPath = "tofui.yaml"
+		}
 	}
 	cfg, err = config.ReadConfig(configPath)
 	if err != nil {
 		log.Fatal("failed to read config: ", err)
 	}
+
+	lf := cfg.Log.Path
+	if lf == "" {
+		lf = "tofui.log"
+	}
+	dir := filepath.Dir(lf)
+	err = os.MkdirAll(dir, 0755)
+	if err != nil {
+		log.Fatal(err)
+	}
+	logFile, err = tea.LogToFile(lf, "debug")
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
+	log.Println("loaded config: ", configPath)
+	db.InitDB(cfg)
+
 }

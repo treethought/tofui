@@ -7,7 +7,7 @@ import (
 )
 
 type HelpView struct {
-  app     *App
+	app  *App
 	h    help.Model
 	vp   viewport.Model
 	full bool
@@ -15,9 +15,9 @@ type HelpView struct {
 
 func NewHelpView(app *App) *HelpView {
 	return &HelpView{
-    app: app,
-		h:  help.New(),
-		vp: viewport.Model{},
+		app: app,
+		h:   help.New(),
+		vp:  viewport.Model{},
 	}
 }
 

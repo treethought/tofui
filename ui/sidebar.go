@@ -146,7 +146,11 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			currentItem := m.nav.SelectedItem().(*sidebarItem)
 			if currentItem.name == "sign in" {
 				log.Println("sign in selected")
-				u := fmt.Sprintf("http://localhost:8000/signin?pk=%s", m.app.ctx.pk)
+				portPart := fmt.Sprintf(":%d", m.app.cfg.Server.HTTPPort)
+				if portPart == ":443" {
+					portPart = ""
+				}
+				u := fmt.Sprintf("%s/signin?pk=%s", m.app.cfg.BaseURL(), m.app.ctx.pk)
 				m.app.signinPrompt.SetContent(fmt.Sprintf("Please sign in at %s", u))
 				m.app.signinPrompt.SetActive(true)
 				return m, OpenURL(u)

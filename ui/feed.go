@@ -53,15 +53,17 @@ func newTable() table.Model {
 		}),
 	)
 	s := table.DefaultStyles()
-	s.Header = s.Header.
+	s.Header = NewStyle().Bold(true).Padding(0, 1).
 		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(lipgloss.Color("240")).
 		BorderBottom(true).
 		Bold(false)
-	s.Selected = s.Selected.
+	s.Selected = NewStyle().Bold(true).
 		Foreground(lipgloss.Color("229")).
 		Background(lipgloss.Color("57")).
 		Bold(false)
+
+	s.Cell = NewStyle().Padding(0, 1)
 	t.SetStyles(s)
 	return t
 }

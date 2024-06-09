@@ -37,7 +37,7 @@ func NewRepliesView(app *App) *RepliesView {
 	feed.SetShowStats(false)
 	return &RepliesView{
 		feed: feed,
-    app: app,
+		app:  app,
 	}
 }
 
@@ -55,9 +55,9 @@ func (m *RepliesView) Clear() {
 func (m *RepliesView) SetOpHash(hash string) tea.Cmd {
 	m.Clear()
 	m.opHash = hash
-  if m.app == nil {
-    log.Println("app is nil")
-  }
+	if m.app == nil {
+		log.Println("app is nil")
+	}
 	if m.app.ctx == nil {
 		log.Println("app context is nil")
 	}

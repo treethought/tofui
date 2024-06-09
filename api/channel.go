@@ -175,7 +175,7 @@ func (c *Client) FetchAllChannels() error {
 			break
 		}
 	}
-  log.Println("channels loaded")
+	log.Println("channels loaded")
 
 	return nil
 }

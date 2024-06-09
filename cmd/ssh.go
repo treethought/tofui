@@ -27,6 +27,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/treethought/tofui/api"
+	"github.com/treethought/tofui/db"
 	"github.com/treethought/tofui/ui"
 )
 
@@ -35,8 +36,6 @@ var (
 	sinwhtml []byte
 	host     = "0.0.0.0"
 	port     = "42069"
-	// port = "22"
-	addr = host + ":" + port
 )
 
 type Server struct {
@@ -51,6 +50,8 @@ var sshCmd = &cobra.Command{
 	Use:   "ssh",
 	Short: "serve tofui over ssh",
 	Run: func(cmd *cobra.Command, args []string) {
+		defer logFile.Close()
+		defer db.GetDB().Close()
 		sv := &Server{
 			prgmSessions: make(map[string][]*tea.Program),
 		}
@@ -60,6 +61,7 @@ var sshCmd = &cobra.Command{
 }
 
 func (sv *Server) runSSHServer() {
+	addr := host + ":" + port
 	s, err := wish.NewServer(
 		wish.WithAddress(addr),
 		wish.WithHostKeyPath(".ssh/tofui_ed25519"),
@@ -98,11 +100,6 @@ func (sv *Server) runSSHServer() {
 }
 
 func (sv *Server) teaMiddleware() wish.Middleware {
-	// var p *tea.Program
-	// newProg := func(m tea.Model, opts ...tea.ProgramOption) *tea.Program {
-	// 	p = tea.NewProgram(m, opts...)
-	// 	return p
-	// }
 	teaHandler := func(s ssh.Session) *tea.Program {
 		_, _, active := s.Pty()
 		if !active {
@@ -131,11 +128,6 @@ func (sv *Server) teaMiddleware() wish.Middleware {
 	return bubbletea.MiddlewareWithProgramHandler(teaHandler, termenv.ANSI256)
 }
 
-func init() {
-	rootCmd.AddCommand(sshCmd)
-
-}
-
 func (sv *Server) HttpHandleSignin(w http.ResponseWriter, r *http.Request) {
 	tmpl, err := template.New("signin").Parse(string(sinwhtml))
 	if err != nil {
@@ -144,8 +136,10 @@ func (sv *Server) HttpHandleSignin(w http.ResponseWriter, r *http.Request) {
 	data := struct {
 		ClientID  string
 		PublicKey string
+		BaseUrl   string
 	}{
 		ClientID: cfg.Neynar.ClientID,
+		BaseUrl:  cfg.BaseURL(),
 	}
 	query := r.URL.Query()
 	pk := query.Get("pk")
@@ -205,31 +199,70 @@ func (sv *Server) signinCallback(fid uint64, uuid, pk string) {
 			log.Println("nil program")
 			continue
 		}
-		// TODO send to tea program as msg instead of directly calling
 		p.Send(&ui.UpdateSignerMsg{Signer: signer})
 	}
 	fmt.Println("signed in as:", signer.Username)
+}
+
+func (sv *Server) HttpHandleIndex(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte(`
+    <html>
+      <head>
+        <title>tofui</title>
+      </head>
+      <body>
+        <h1>tofui</h1>
+        <p>Terminally On Farcaster User Interface</p>
+        <div>
+          <code>ssh -p 42069 you@tofui.xyz</code>
+          <br>
+          <hr/
+    <p>Or, visit <a href="https://github.com/treethought/tofui">the repo</a> for more info</p>
+    </div>
+    </body>
+    </html>
+    `))
 }
 
 func (sv *Server) startSigninHTTPServer() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	mux := http.NewServeMux()
+	mux.HandleFunc("/", sv.HttpHandleIndex)
 	mux.HandleFunc("/signin", sv.HttpHandleSignin)
 	mux.HandleFunc("/signin/success", sv.HttpHandleSigninSuccess)
 
 	srv := &http.Server{
-		Addr:    "0.0.0.0:8000",
+		Addr:    fmt.Sprintf(":%d", cfg.Server.HTTPPort),
 		Handler: mux,
 	}
-	log.Println("listening on :8000")
-	go func() {
-		if err := srv.ListenAndServe(); err != nil {
-			log.Println(err)
-		}
-	}()
+
+	if cfg.Server.HTTPPort == 443 {
+		cert := fmt.Sprintf("%s/%s", cfg.Server.CertsDir, "cert.pem")
+		key := fmt.Sprintf("%s/%s", cfg.Server.CertsDir, "privkey.pem")
+		log.Println("serving TLS on ", srv.Addr)
+		go func() {
+			if err := srv.ListenAndServeTLS(cert, key); err != nil {
+				log.Println(err)
+			}
+		}()
+
+	} else {
+		log.Println("listening on ", srv.Addr)
+		go func() {
+			if err := srv.ListenAndServe(); err != nil {
+				log.Println(err)
+			}
+		}()
+
+	}
 
 	<-ctx.Done()
 	srv.Shutdown(context.Background())
+
+}
+
+func init() {
+	rootCmd.AddCommand(sshCmd)
 
 }
