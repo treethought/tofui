@@ -18,7 +18,6 @@ type FeedRequest struct {
 }
 
 func (r *FeedRequest) opts() []RequestOption {
-  log.Println("FeedRequest.opts()")
 	var opts []RequestOption
 	if r.FeedType != "" {
 		opts = append(opts, WithQuery("feed_type", r.FeedType))
@@ -52,7 +51,6 @@ func (r *FeedRequest) opts() []RequestOption {
 			r.ViewerFID = 3
 		}
 	}
-	log.Println("r.ViewerFID", r.ViewerFID, " ", r.FID)
 	opts = append(opts, WithQuery("viewer_fid", fmt.Sprintf("%d", r.ViewerFID)))
 
 	return opts
@@ -63,7 +61,6 @@ type FeedResponse struct {
 }
 
 func (c *Client) GetFeed(r *FeedRequest) (*FeedResponse, error) {
-  log.Println("GetFeed()")
 	path := "/feed"
 	opts := r.opts()
 	var resp FeedResponse

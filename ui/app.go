@@ -70,6 +70,7 @@ type App struct {
 	publish         *PublishInput
 	statusLine      *StatusLine
 	signinPrompt    *SigninPrompt
+	splash          *SplashView
 	help            *HelpView
 }
 
@@ -126,6 +127,8 @@ func NewApp(cfg *config.Config, ctx *AppContext) *App {
 	a.statusLine = NewStatusLine(a)
 	a.help = NewHelpView(a)
 	a.signinPrompt = NewSigninPrompt()
+	a.splash = NewSplashView()
+	a.splash.SetActive(true)
 	a.SetNavName("feed")
 
 	feed := NewFeedView(a)
@@ -265,6 +268,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, cmd
 		}
 	case *api.FeedResponse:
+		a.splash.SetActive(false)
 		// allow msg to pass through to profile's embedded feed
 		if a.focused == "profile" {
 			_, cmd := a.GetFocused().Update(msg)
@@ -395,6 +399,9 @@ func (a *App) View() string {
 	}
 	main := focus.View()
 	side := a.sidebar.View()
+	if a.splash.Active() {
+		main = a.splash.View()
+	}
 
 	if a.signinPrompt.Active() {
 		main = a.signinPrompt.View()
