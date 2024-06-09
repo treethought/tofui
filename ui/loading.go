@@ -16,7 +16,7 @@ func tickCmd() tea.Cmd {
 }
 
 type Loading struct {
-	prog   progress.Model
+	prog   *progress.Model
 	active bool
 	pct    float64
 }
@@ -26,7 +26,7 @@ func NewLoading() *Loading {
 	p.ShowPercentage = false
 	return &Loading{
 		active: true,
-		prog:   p,
+		prog:   &p,
 	}
 }
 
@@ -62,7 +62,7 @@ func (m *Loading) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if !m.active {
 			return m, nil
 		}
-		m.pct = m.pct + 0.25
+		m.pct = m.pct + 0.1
 		if m.pct > 1 {
 			m.pct = 0
 		}

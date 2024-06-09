@@ -2,7 +2,7 @@
 
 tofui (Terminally On Farcaster User Interface) is a TUI for [farcaster](https://www.farcaster.xyz/).
 
-It supports running locally using your own [Neynar](https://neynar.com/) application, or as a hosted SSH app using [wish](https://github.com/charmbracelet/wish)
+It supports running locally using your own [Neynar](https://neynar.com/) application, or as a hosted SSH app using [wish](https://github.com/charmbracelet/wish).
 
 ![tofui screenshot](./media/screenshot.png)
 
@@ -13,6 +13,8 @@ Use a hosted instance of tofui over ssh
 
 ```
 ssh -p 42069 tofui.xyz
+
+(Note this is WIP and may be slow / unavailable)
 ```
 
 ### SSH Sessions, Authentication and Details

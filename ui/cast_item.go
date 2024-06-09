@@ -103,9 +103,9 @@ func getCastChannelCmd(client *api.Client, cast *api.Cast) tea.Cmd {
 		}
 		ch, err := client.GetChannelByParentUrl(cast.ParentURL)
 		if err != nil {
-			return channelInfoErrMsg{err, cast.Hash, cast.ParentURL}
+			return &channelInfoErrMsg{err, cast.Hash, cast.ParentURL}
 		}
-		return channelInfoMsg{ch, cast.Hash, cast.ParentURL}
+		return &channelInfoMsg{ch, cast.Hash, cast.ParentURL}
 	}
 }
 
@@ -164,11 +164,11 @@ func (m *CastFeedItem) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	cmds := []tea.Cmd{}
 	switch msg := msg.(type) {
-	case channelInfoErrMsg:
+	case *channelInfoErrMsg:
 		if msg.cast != m.cast.Hash {
 			return m, nil
 		}
-	case channelInfoMsg:
+	case *channelInfoMsg:
 		if msg.cast != m.cast.Hash {
 			return m, nil
 		}

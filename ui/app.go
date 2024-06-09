@@ -220,7 +220,7 @@ func (a *App) FocusPrev() tea.Cmd {
 
 func (a *App) Init() tea.Cmd {
 	cmds := []tea.Cmd{}
-	cmds = append(cmds, a.sidebar.Init(), a.quickSelect.Init(), a.publish.Init())
+	cmds = append(cmds, a.splash.Init(), a.sidebar.Init(), a.quickSelect.Init(), a.publish.Init())
 	focus := a.GetFocused()
 	if focus != nil {
 		cmds = append(cmds, focus.Init())
@@ -269,8 +269,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			_, cmd := a.quickSelect.Update(msg.channels)
 			return a, cmd
 		}
-	case *api.FeedResponse:
+	case *feedLoadedMsg:
 		a.splash.SetActive(false)
+	case *channelInfoMsg:
+		a.splash.SetInfo(msg.channel.Name)
+	case *api.FeedResponse:
 		// allow msg to pass through to profile's embedded feed
 		if a.focused == "profile" {
 			_, cmd := a.GetFocused().Update(msg)
@@ -279,6 +282,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		feed := a.GetModel("feed").(*FeedView)
 		feed.Clear()
 		focusCmd := a.SetFocus("feed")
+		a.splash.SetInfo("loading channels...")
 		return a, tea.Batch(feed.setItems(msg.Casts), focusCmd)
 	case SelectProfileMsg:
 		focusCmd := a.SetFocus("profile")
@@ -338,6 +342,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q":
+			return a, tea.Quit
+		}
+		if a.splash.Active() {
+			return a, nil
+		}
 		if a.publish.Active() {
 			_, cmd := a.publish.Update(msg)
 			return a, cmd
@@ -348,12 +359,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, cmd
 		}
 
-		switch msg.String() {
-		case "ctrl+c", "q":
-			return a, tea.Quit
-		}
 	case *currentAccountMsg:
 		_, cmd := a.sidebar.Update(msg)
+		return a, cmd
+	}
+	if a.splash.Active() {
+		_, cmd := a.splash.Update(msg)
 		return a, cmd
 	}
 	if a.signinPrompt.Active() {

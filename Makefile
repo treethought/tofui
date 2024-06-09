@@ -8,13 +8,15 @@ build:
 	go build -o ./tofui
 
 clean:
-	rm -rf /tmp/tofui
+	rm -rf ~/.tofui/db
 
 start:
 	go run cmd/main.go run -c examples/config.yaml
 
 deploy:
 	@echo "Deploying as user: ${DEPLOY_USER}"
+	ssh ${DEPLOY_USER}@${DEPLOY_HOST} "sudo systemctl stop tofui"
 	scp ./tofui ${DEPLOY_USER}@${DEPLOY_HOST}:/usr/bin/
-	scp config.yaml ${DEPLOY_USER}@${DEPLOY_HOST}:/etc/tofui/config.yaml
+	scp tofui.yaml ${DEPLOY_USER}@${DEPLOY_HOST}:/etc/tofui/config.yaml
+	ssh ${DEPLOY_USER}@${DEPLOY_HOST} "sudo systemctl daemon-reload && sudo systemctl start tofui"
 

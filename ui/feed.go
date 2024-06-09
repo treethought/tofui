@@ -17,6 +17,8 @@ var (
 	docStyle = NewStyle().Margin(2, 2).Align(lipgloss.Center)
 )
 
+type feedLoadedMsg struct{}
+
 type apiErrorMsg struct {
 	err error
 }
@@ -201,6 +203,12 @@ func (m *FeedView) setItems(casts []*api.Cast) tea.Cmd {
 	}
 	m.table.SetRows(rows)
 	m.loading.SetActive(false)
+
+	done := func() tea.Msg {
+		return &feedLoadedMsg{}
+	}
+	cmds = append(cmds, done)
+
 	return tea.Batch(cmds...)
 }
 
