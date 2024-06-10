@@ -7,7 +7,7 @@ It supports running locally using your own [Neynar](https://neynar.com/)
 application, or as a hosted SSH app using
 [wish](https://github.com/charmbracelet/wish).
 
-![tofui screenshot](./media/screenshot.png)
+![tofui demo](./media/demo.gif)
 
 ## Running Locally
 

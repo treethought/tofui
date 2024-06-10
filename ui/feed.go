@@ -336,6 +336,10 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.setItems(msg.Casts)
 	case reactMsg:
 		current := m.getCurrentItem()
+		if current == nil || current.cast == nil{
+			return m, nil
+		}
+
 		if current.cast.Hash != msg.hash {
 			return m, m.SetDefaultParams()
 		}
