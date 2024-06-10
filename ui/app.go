@@ -70,9 +70,9 @@ type App struct {
 	showQuickSelect bool
 	publish         *PublishInput
 	statusLine      *StatusLine
-	signinPrompt    *SigninPrompt
-	splash          *SplashView
-	help            *HelpView
+	// signinPrompt    *SigninPrompt
+	splash *SplashView
+	help   *HelpView
 }
 
 func (a *App) PublicKey() string {
@@ -128,9 +128,11 @@ func NewApp(cfg *config.Config, ctx *AppContext) *App {
 	a.publish = NewPublishInput(a)
 	a.statusLine = NewStatusLine(a)
 	a.help = NewHelpView(a)
-	a.signinPrompt = NewSigninPrompt()
-	a.splash = NewSplashView()
+	a.splash = NewSplashView(a)
 	a.splash.SetActive(true)
+	if a.ctx.signer == nil {
+		a.splash.ShowSignin(true)
+	}
 	a.SetNavName("feed")
 
 	feed := NewFeedView(a)
@@ -169,10 +171,6 @@ func (a *App) SetFocus(name string) tea.Cmd {
 	if a.publish.Active() {
 		a.publish.SetActive(false)
 		a.publish.SetFocus(false)
-	}
-	if a.signinPrompt.Active() {
-		a.signinPrompt.SetActive(false)
-		a.signinPrompt.SetContent("")
 	}
 	if name == "" || name == a.focused {
 		return nil
@@ -242,7 +240,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case *UpdateSignerMsg:
 		a.ctx.signer = msg.Signer
-		a.signinPrompt.SetActive(false)
+		a.splash.ShowSignin(false)
 		log.Println("updated signer for: ", msg.Signer.Username)
 		return a, a.Init()
 	case navNameMsg:
@@ -320,7 +318,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		pw := wx - sx
 		py := wy - 10
 		a.publish.SetSize(pw, py)
-		a.signinPrompt.SetSize(pw, py)
+		a.splash.SetSize(pw, py)
 
 		hw := wx - sx
 		hy := wy - 10
@@ -343,8 +341,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return a, tea.Quit
 		}
+
 		if a.splash.Active() {
-			return a, nil
+			_, cmd := a.splash.Update(msg)
+			return a, cmd
 		}
 		if a.publish.Active() {
 			_, cmd := a.publish.Update(msg)
@@ -358,14 +358,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case *currentAccountMsg:
 		_, cmd := a.sidebar.Update(msg)
-		return a, cmd
-	}
-	if a.splash.Active() {
-		_, cmd := a.splash.Update(msg)
-		return a, cmd
-	}
-	if a.signinPrompt.Active() {
-		_, cmd := a.signinPrompt.Update(msg)
+    a.splash.ShowSignin(false)
 		return a, cmd
 	}
 	if a.publish.Active() {
@@ -411,10 +404,6 @@ func (a *App) View() string {
 	side := a.sidebar.View()
 	if a.splash.Active() {
 		main = a.splash.View()
-	}
-
-	if a.signinPrompt.Active() {
-		main = a.signinPrompt.View()
 	}
 
 	if a.publish.Active() {

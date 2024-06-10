@@ -148,6 +148,9 @@ func likeCastCmd(client *api.Client, signer *api.Signer, cast *api.Cast) tea.Cmd
 
 func getDefaultFeedCmd(client *api.Client, signer *api.Signer) tea.Cmd {
 	req := &api.FeedRequest{Limit: 100}
+	if signer == nil {
+		return nil
+	}
 	if signer != nil {
 		req.FID = signer.FID
 		req.ViewerFID = signer.FID

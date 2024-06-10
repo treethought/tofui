@@ -23,7 +23,7 @@ type Config struct {
 	Neynar struct {
 		APIKey   string `yaml:"api_key"`
 		ClientID string `yaml:"client_id"`
-		HubURL   string `yaml:"hub_url"`
+		BaseUrl  string `yaml:"base_url"`
 	}
 }
 

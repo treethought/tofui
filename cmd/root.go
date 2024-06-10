@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -58,17 +59,26 @@ func init() {
 }
 
 func initConfig() {
-	os.MkdirAll("/tmp/tofui", 0755)
+	if len(os.Args) > 1 && os.Args[1] == "init" {
+		return
+	}
 	var err error
 	if configPath == "" {
 		if _, err := os.Stat("config.yaml"); err == nil {
 			configPath = "config.yaml"
 		} else {
-			configPath = "tofui.yaml"
+			homeDir, err := os.UserHomeDir()
+			if err != nil {
+				log.Fatal("failed to find default config file: ", err)
+			}
+			configPath = filepath.Join(homeDir, ".tofui", "config.yaml")
 		}
 	}
 	cfg, err = config.ReadConfig(configPath)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			log.Fatal("failed to fing config file, run `tofui init` to create one")
+		}
 		log.Fatal("failed to read config: ", err)
 	}
 

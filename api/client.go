@@ -48,7 +48,7 @@ func NewClient(cfg *config.Config) *Client {
 		client = &Client{
 			c:        http.DefaultClient,
 			apiKey:   cfg.Neynar.APIKey,
-			baseURL:  cfg.Neynar.HubURL,
+			baseURL:  cfg.Neynar.BaseUrl,
 			clientID: cfg.Neynar.ClientID,
 		}
 	})

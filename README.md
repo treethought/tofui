@@ -9,39 +9,16 @@ application, or as a hosted SSH app using
 
 ![tofui screenshot](./media/screenshot.png)
 
-## Hosted version
-
-Use a hosted instance of tofui over ssh
-
-```
-ssh -p 42069 tofui.xyz
-
-(Note this is WIP and may be slow / unavailable)
-```
-
-### SSH Sessions, Authentication and Details
-
-Each SSH session is authenticated via it's SSH public key. The session then
-receives it's own [Bubble Tea](https://github.com/charmbracelet/bubbletea) which
-provides the interface.
-
-For authorization, the app directs you to create a signer via Neynar's
-[SIWN](https://docs.neynar.com/docs/how-to-let-users-connect-farcaster-accounts-with-write-access-for-free-using-sign-in-with-neynar-siwn).
-This signer is created and managed by Neynar, and is used to provide tofui
-access to your farcaster account via it's API.
-
-This is done when both running locally and over SSH, and the signer is specific
-to whichever app credentials were used. This would be tofui over SSH, or your
-own app when running locally.
-
-the tofui instance (local or hosted) uses the configured Neynar app credentials
-to obtain a signer via
-
 ## Running Locally
 
-Running locally requires your own Neynar application. After creating one, copy
-[config.yaml.example](./config.yaml.example) to config.yaml and updating with
-your app's values.
+
+Running locally requires your own Neynar application. After creating one, run the following to create your config file
+
+```
+tofui init
+```
+
+Starting tofui the first time will then give you the option to sign in
 
 ### Install
 
@@ -89,3 +66,30 @@ Then start the TUI via `tofui`
 | C      | Open reply form when viewing cast              |
 | o      | Open current cast in browser (local mode only) |
 | l      | Like current cast                              |
+
+## Hosted version (WIP and often unavailable)
+
+Use a hosted instance of tofui over ssh. (Note: this is WIP and currently unavailable)
+
+```
+ssh -p 42069 tofui.xyz
+```
+
+### SSH Sessions, Authentication and Details
+
+Each SSH session is authenticated via it's SSH public key. The session then
+receives it's own [Bubble Tea](https://github.com/charmbracelet/bubbletea) which
+provides the interface.
+
+For authorization, the app directs you to create a signer via Neynar's
+[SIWN](https://docs.neynar.com/docs/how-to-let-users-connect-farcaster-accounts-with-write-access-for-free-using-sign-in-with-neynar-siwn).
+This signer is created and managed by Neynar, and is used to provide tofui
+access to your farcaster account via it's API.
+
+This is done when both running locally and over SSH, and the signer is specific
+to whichever app credentials were used. This would be tofui over SSH, or your
+own app when running locally.
+
+the tofui instance (local or hosted) uses the configured Neynar app credentials
+to obtain a signer via
+

@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -21,13 +23,15 @@ var txt = `
 var splashStyle = NewStyle().Align(lipgloss.Center).Margin(2, 2)
 
 type SplashView struct {
+	app     *App
 	vp      *viewport.Model
 	info    *viewport.Model
 	loading *Loading
 	active  bool
+	signin  bool
 }
 
-func NewSplashView() *SplashView {
+func NewSplashView(app *App) *SplashView {
 	x, y := lipgloss.Size(txt)
 	vp := viewport.New(x, y)
 	vp.SetContent(txt)
@@ -38,7 +42,11 @@ func NewSplashView() *SplashView {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = NewStyle().Foreground(lipgloss.Color("205"))
-	return &SplashView{vp: &vp, loading: l, info: &info, active: true}
+	return &SplashView{
+		vp: &vp, loading: l,
+		info: &info, active: true,
+		app: app,
+	}
 }
 
 func (m *SplashView) Active() bool {
@@ -48,8 +56,17 @@ func (m *SplashView) SetActive(active bool) {
 	m.loading.SetActive(active)
 	m.active = active
 }
-
+func (m *SplashView) ShowSignin(v bool) {
+	m.loading.SetActive(!v)
+	m.signin = v
+	if v {
+		m.info.SetContent("Press Enter to sign in")
+	}
+}
 func (m *SplashView) SetInfo(content string) {
+	if m.signin {
+		return
+	}
 	m.info.SetContent(content)
 }
 
@@ -66,6 +83,21 @@ func (m *SplashView) Init() tea.Cmd {
 	return tea.Batch(m.loading.Init())
 }
 func (m *SplashView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.signin {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			if msg.String() == "enter" {
+				portPart := fmt.Sprintf(":%d", m.app.cfg.Server.HTTPPort)
+				if portPart == ":443" {
+					portPart = ""
+				}
+				u := fmt.Sprintf("%s/signin?pk=%s", m.app.cfg.BaseURL(), m.app.ctx.pk)
+				m.info.SetContent(fmt.Sprintf("Please sign in at %s", u))
+				return m, OpenURL(u)
+			}
+		}
+	}
+
 	if !m.active {
 		return m, nil
 	}

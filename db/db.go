@@ -76,7 +76,7 @@ func (db *DB) runGC() {
 
 func (db *DB) Close() {
 	slog.Println("closing db")
-	if db.db != nil {
+	if db != nil && db.db != nil {
 		db.db.Close()
 		db.lf.Close()
 	}

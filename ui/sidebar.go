@@ -101,8 +101,6 @@ func (m *Sidebar) navHeader() []list.Item {
 	items := []list.Item{}
 	if api.GetSigner(m.app.ctx.pk) != nil {
 		items = append(items, &sidebarItem{name: "profile"})
-	} else {
-		items = append(items, &sidebarItem{name: "sign in"})
 	}
 	items = append(items, &sidebarItem{name: "feed"})
 	items = append(items, &sidebarItem{name: "--channels---", value: "--channels--", icon: "🏠"})
@@ -144,17 +142,6 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.String() == "enter" {
 			currentItem := m.nav.SelectedItem().(*sidebarItem)
-			if currentItem.name == "sign in" {
-				log.Println("sign in selected")
-				portPart := fmt.Sprintf(":%d", m.app.cfg.Server.HTTPPort)
-				if portPart == ":443" {
-					portPart = ""
-				}
-				u := fmt.Sprintf("%s/signin?pk=%s", m.app.cfg.BaseURL(), m.app.ctx.pk)
-				m.app.signinPrompt.SetContent(fmt.Sprintf("Please sign in at %s", u))
-				m.app.signinPrompt.SetActive(true)
-				return m, OpenURL(u)
-			}
 			if currentItem.name == "profile" {
 				m.SetActive(false)
 				log.Println("profile selected")

@@ -1,4 +1,11 @@
 neynar:
   api_key: "1234"
   client_id: "abcd"
-  hub_url: "https://api.neynar.com/v2/farcaster"
+  base_url: "https://api.neynar.com/v2/farcaster"
+db:
+  dir: .db
+log:
+  path: debug.log
+server:
+  host: localhost
+  http_port: 4200
