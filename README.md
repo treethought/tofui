@@ -90,6 +90,3 @@ This is done when both running locally and over SSH, and the signer is specific
 to whichever app credentials were used. This would be tofui over SSH, or your
 own app when running locally.
 
-the tofui instance (local or hosted) uses the configured Neynar app credentials
-to obtain a signer via
-
