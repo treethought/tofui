@@ -142,10 +142,6 @@ func (k navKeymap) HandleMsg(a *App, msg tea.KeyMsg) tea.Cmd {
 		// TODO cleanup
 		// reset params for user's feed
 		var cmd tea.Cmd
-		if f, ok := a.GetModel("feed").(*FeedView); ok {
-			f.Clear()
-			cmd = f.SetDefaultParams()
-		}
 		a.SetNavName("feed")
 		a.sidebar.SetActive(false)
 		return tea.Sequence(cmd, a.SetFocus("feed"))

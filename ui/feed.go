@@ -31,7 +31,6 @@ type reactMsg struct {
 
 type FeedView struct {
 	app     *App
-	client  *api.Client
 	table   table.Model
 	items   []*CastFeedItem
 	loading *Loading
@@ -148,10 +147,14 @@ func likeCastCmd(client *api.Client, signer *api.Signer, cast *api.Cast) tea.Cmd
 }
 
 func getDefaultFeedCmd(client *api.Client, signer *api.Signer) tea.Cmd {
-	req := &api.FeedRequest{FeedType: "following", Limit: 100}
+	req := &api.FeedRequest{Limit: 100}
 	if signer != nil {
 		req.FID = signer.FID
 		req.ViewerFID = signer.FID
+		req.FeedType = "following"
+	} else {
+		req.FeedType = "filter"
+		req.FilterType = "global_trending"
 	}
 	return getFeedCmd(client, req)
 }
@@ -284,18 +287,17 @@ func (m *FeedView) ViewCurrentChannel() tea.Cmd {
 	if current.cast.ParentURL == "" {
 		return nil
 	}
-	m.Clear()
 
 	cmds := []tea.Cmd{}
-	if c, err := m.client.GetChannelByParentUrl(current.cast.ParentURL); err == nil {
+	if c, err := m.app.client.GetChannelByParentUrl(current.cast.ParentURL); err == nil {
 		cmds = append(cmds, navNameCmd(fmt.Sprintf("channel: %s", c.Name)))
 	}
 	cmds = append(cmds,
-		focusCmd("feed"),
-		getFeedCmd(m.client, &api.FeedRequest{
+		getFeedCmd(m.app.client, &api.FeedRequest{
 			FeedType: "filter", FilterType: "parent_url",
 			ParentURL: current.cast.ParentURL, Limit: 100},
 		),
+		focusCmd("feed"),
 	)
 
 	return tea.Sequence(cmds...)

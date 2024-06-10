@@ -25,7 +25,6 @@ type SplashView struct {
 	info    *viewport.Model
 	loading *Loading
 	active  bool
-	spinner *spinner.Model
 }
 
 func NewSplashView() *SplashView {
@@ -39,7 +38,7 @@ func NewSplashView() *SplashView {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = NewStyle().Foreground(lipgloss.Color("205"))
-	return &SplashView{vp: &vp, loading: l, info: &info, active: true, spinner: &s}
+	return &SplashView{vp: &vp, loading: l, info: &info, active: true}
 }
 
 func (m *SplashView) Active() bool {
@@ -64,27 +63,21 @@ func (m *SplashView) SetSize(w, h int) {
 }
 
 func (m *SplashView) Init() tea.Cmd {
-	return tea.Batch(m.loading.Init(), m.spinner.Tick)
+	return tea.Batch(m.loading.Init())
 }
 func (m *SplashView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if !m.active {
 		return m, nil
 	}
-	cmds := []tea.Cmd{}
-	_, lcmd := m.loading.Update(msg)
-	cmds = append(cmds, lcmd)
-	_, scmd := m.spinner.Update(msg)
-	cmds = append(cmds, scmd)
-
-	cmds = append(cmds, m.spinner.Tick)
-	return m, tea.Batch(cmds...)
+	_, cmd := m.loading.Update(msg)
+	return m, cmd
 }
 func (m *SplashView) View() string {
 	return splashStyle.Render(
 		lipgloss.JoinVertical(lipgloss.Top,
 			m.vp.View(),
 			lipgloss.NewStyle().MarginTop(1).Render(m.loading.View()),
-			lipgloss.JoinHorizontal(lipgloss.Left, m.spinner.View(), "  ", m.info.View()),
+			m.info.View(),
 		),
 	)
 }

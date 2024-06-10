@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"log"
 )
 
 type FeedRequest struct {
@@ -42,16 +41,9 @@ func (r *FeedRequest) opts() []RequestOption {
 	if r.Limit != 0 {
 		opts = append(opts, WithQuery("limit", fmt.Sprintf("%d", r.Limit)))
 	}
-	if r.ViewerFID == 0 {
-		if r.FID != 0 {
-			r.ViewerFID = r.FID
-			log.Println("using fid param for viewer for feed request: ", r.FID)
-		} else {
-			log.Println("using default viewer fid 3 for feed request")
-			r.ViewerFID = 3
-		}
+	if r.ViewerFID != 0 {
+		opts = append(opts, WithQuery("viewer_fid", fmt.Sprintf("%d", r.ViewerFID)))
 	}
-	opts = append(opts, WithQuery("viewer_fid", fmt.Sprintf("%d", r.ViewerFID)))
 
 	return opts
 }

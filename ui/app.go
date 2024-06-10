@@ -202,14 +202,9 @@ func (a *App) FocusPrev() tea.Cmd {
 	}
 	prev := a.GetModel(a.prev)
 	if a.prev == "" || prev == nil {
-		a.SetNavName("feed")
-		if f, ok := a.GetModel("feed").(*FeedView); ok {
-			f.Clear()
-			return tea.Sequence(f.SetDefaultParams(), a.SetFocus("feed"))
-		}
-
-		return a.SetFocus("feed")
+		return nil
 	}
+
 	if m := a.GetModel(a.prev); m != nil {
 		a.SetNavName(a.prevName)
 		return a.SetFocus(a.prev)
@@ -280,7 +275,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, cmd
 		}
 		feed := a.GetModel("feed").(*FeedView)
-		feed.Clear()
+		if a.focused == "feed" {
+			feed.Clear()
+		}
 		focusCmd := a.SetFocus("feed")
 		a.splash.SetInfo("loading channels...")
 		return a, tea.Batch(feed.setItems(msg.Casts), focusCmd)
