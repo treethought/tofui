@@ -187,6 +187,7 @@ func (a *App) SetFocus(name string) tea.Cmd {
 	a.focusedModel = m
 	a.focused = name
 	a.sidebar.SetActive(false)
+	return nil
 	return m.Init()
 }
 
@@ -268,14 +269,19 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.splash.SetInfo(msg.channel.Name)
 	case *api.FeedResponse:
 		// allow msg to pass through to profile's embedded feed
+		fm := a.GetFocused()
 		if a.focused == "profile" {
-			_, cmd := a.GetFocused().Update(msg)
+			if p, ok := fm.(*Profile); ok {
+				p.feed.Clear()
+			}
+			_, cmd := fm.Update(msg)
 			return a, cmd
 		}
-		feed := a.GetModel("feed").(*FeedView)
-		if a.focused == "feed" {
-			feed.Clear()
+		if a.focused == "feed" && a.prev == "feed" {
+			return a, nil
 		}
+		feed := a.GetModel("feed").(*FeedView)
+		feed.Clear()
 		focusCmd := a.SetFocus("feed")
 		a.splash.SetInfo("loading channels...")
 		return a, tea.Batch(feed.setItems(msg.Casts), focusCmd)
@@ -358,7 +364,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case *currentAccountMsg:
 		_, cmd := a.sidebar.Update(msg)
-    a.splash.ShowSignin(false)
+		a.splash.ShowSignin(false)
 		return a, cmd
 	}
 	if a.publish.Active() {
