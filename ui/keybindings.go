@@ -144,7 +144,7 @@ func (k navKeymap) HandleMsg(a *App, msg tea.KeyMsg) tea.Cmd {
 		var cmd tea.Cmd
 		a.SetNavName("feed")
 		a.sidebar.SetActive(false)
-		return tea.Sequence(cmd, a.SetFocus("feed"))
+		return tea.Sequence(cmd, a.FocusFeed())
 
 	case key.Matches(msg, k.Publish):
 		a.publish.SetActive(true)

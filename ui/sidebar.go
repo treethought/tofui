@@ -149,18 +149,18 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if fid == 0 {
 					return m, nil
 				}
-				return m, tea.Sequence(m.app.SetFocus("profile"), selectProfileCmd(fid))
+				return m, tea.Sequence(m.app.FocusProfile(), selectProfileCmd(fid))
 			}
 			if currentItem.name == "feed" {
 				m.SetActive(false)
 				log.Println("feed selected")
-				return m, tea.Sequence(m.app.SetFocus("feed"), getDefaultFeedCmd(m.app.client, m.app.ctx.signer))
+				return m, tea.Sequence(m.app.FocusFeed(), getDefaultFeedCmd(m.app.client, m.app.ctx.signer))
 			}
 			if currentItem.itype == "channel" {
 				m.SetActive(false)
 				m.app.SetNavName(fmt.Sprintf("channel: %s", currentItem.name))
 				return m, tea.Sequence(
-					m.app.SetFocus("feed"),
+					m.app.FocusChannel(),
 					getFeedCmd(m.app.client,
 						&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: currentItem.value, Limit: 100}),
 				)

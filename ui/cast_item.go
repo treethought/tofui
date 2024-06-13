@@ -11,11 +11,6 @@ import (
 	"github.com/treethought/tofui/api"
 )
 
-const (
-	width       = 96
-	columnWidth = 30
-)
-
 var (
 	subtle    = lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}
 	highlight = lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
@@ -114,6 +109,7 @@ type channelInfoMsg struct {
 	cast      string
 	parentURL string
 }
+
 type channelInfoErrMsg struct {
 	err       error
 	cast      string

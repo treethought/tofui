@@ -13,6 +13,7 @@ var (
 	EmojiEmptyLike = "🤍"
 	EmojiRecyle    = "♻️"
 	EmojiComment   = "💬"
+	EmojiPerson    = "👤"
 )
 
 func OpenURL(url string) tea.Cmd {

@@ -34,16 +34,6 @@ func navNameCmd(name string) tea.Cmd {
 	}
 }
 
-type FocusMsg struct {
-	Name string
-}
-
-func focusCmd(name string) tea.Cmd {
-	return func() tea.Msg {
-		return FocusMsg{Name: name}
-	}
-}
-
 type SelectCastMsg struct {
 	cast *api.Cast
 }
@@ -55,7 +45,6 @@ type AppContext struct {
 }
 
 type App struct {
-	models          map[string]tea.Model
 	ctx             *AppContext
 	client          *api.Client
 	cfg             *config.Config
@@ -73,6 +62,11 @@ type App struct {
 	// signinPrompt    *SigninPrompt
 	splash *SplashView
 	help   *HelpView
+
+	feed    *FeedView
+	channel *FeedView
+	profile *Profile
+	cast    *CastView
 }
 
 func (a *App) PublicKey() string {
@@ -117,12 +111,20 @@ func NewApp(cfg *config.Config, ctx *AppContext) *App {
 		ctx = &AppContext{}
 	}
 	a := &App{
-		models:      make(map[string]tea.Model),
 		showSidebar: true,
 		ctx:         ctx,
 		client:      api.NewClient(cfg),
 		cfg:         cfg,
 	}
+	a.feed = NewFeedView(a, feedTypeFollowing)
+	a.focusedModel = a.feed
+
+	a.profile = NewProfile(a)
+
+	a.channel = NewFeedView(a, feedTypeChannel)
+
+	a.cast = NewCastView(a, nil)
+
 	a.sidebar = NewSidebar(a)
 	a.quickSelect = NewQuickSelect(a)
 	a.publish = NewPublishInput(a)
@@ -135,36 +137,16 @@ func NewApp(cfg *config.Config, ctx *AppContext) *App {
 	}
 	a.SetNavName("feed")
 
-	feed := NewFeedView(a)
-	a.Register("feed", feed)
-	a.SetFocus("feed")
-
-	castDetails := NewCastView(a, nil)
-	a.Register("cast", castDetails)
-
-	profile := NewProfile(a)
-	a.Register("profile", profile)
 	return a
 }
 
-func (a *App) GetModel(name string) tea.Model {
-	m, ok := a.models[name]
-	if !ok {
-		log.Println("model not found: ", name)
-	}
-	return m
-}
-
-func (a *App) Register(name string, model tea.Model) {
-	a.models[name] = model
-}
 
 func (a *App) SetNavName(name string) {
 	a.prevName = a.navname
 	a.navname = name
 }
 
-func (a *App) SetFocus(name string) tea.Cmd {
+func (a *App) focusMain() {
 	if a.showQuickSelect {
 		a.showQuickSelect = false
 	}
@@ -172,23 +154,42 @@ func (a *App) SetFocus(name string) tea.Cmd {
 		a.publish.SetActive(false)
 		a.publish.SetFocus(false)
 	}
-	if name == "" || name == a.focused {
-		return nil
-	}
-	// clear if we're back at feed
-	a.prev = ""
-	if name != "feed" {
-		a.prev = a.focused
-	}
-	m, ok := a.models[name]
-	if !ok {
-		log.Println("model not found: ", name)
-	}
-	a.focusedModel = m
-	a.focused = name
 	a.sidebar.SetActive(false)
+	if a.help.IsFull() {
+		a.help.SetFull(false)
+	}
+}
+
+func (a *App) FocusFeed() tea.Cmd {
+	a.focusMain()
+	a.SetNavName("feed")
+	a.focusedModel = a.feed
+	a.focused = "feed"
 	return nil
-	return m.Init()
+}
+
+func (a *App) FocusProfile() tea.Cmd {
+	a.focusMain()
+	a.SetNavName("profile")
+	a.focusedModel = a.profile
+	a.focused = "profile"
+	return a.profile.Init()
+}
+
+func (a *App) FocusChannel() tea.Cmd {
+	a.focusMain()
+	a.SetNavName("channel")
+	a.focusedModel = a.channel
+	a.focused = "channel"
+	return a.channel.Init()
+}
+
+func (a *App) FocusCast() tea.Cmd {
+	a.focusMain()
+	a.SetNavName("cast")
+	a.focusedModel = a.cast
+	a.focused = "cast"
+	return a.cast.Init()
 }
 
 func (a *App) GetFocused() tea.Model {
@@ -196,20 +197,17 @@ func (a *App) GetFocused() tea.Model {
 }
 
 func (a *App) FocusPrev() tea.Cmd {
-	if a.help.IsFull() {
-		a.help.SetFull(false)
+	switch a.prev {
+	case "feed":
+		return a.FocusFeed()
+	case "profile":
+		return a.FocusProfile()
+	case "channel":
+		return a.FocusChannel()
+	case "cast":
+		return a.FocusCast()
 	}
-	prev := a.GetModel(a.prev)
-	if a.prev == "" || prev == nil {
-		return nil
-	}
-
-	if m := a.GetModel(a.prev); m != nil {
-		a.SetNavName(a.prevName)
-		return a.SetFocus(a.prev)
-	}
-	a.SetNavName("feed")
-	return a.SetFocus("feed")
+	return a.FocusFeed()
 }
 
 func (a *App) Init() tea.Cmd {
@@ -222,16 +220,6 @@ func (a *App) Init() tea.Cmd {
 	return tea.Batch(cmds...)
 }
 
-func (a *App) propagateEvent(msg tea.Msg) tea.Cmd {
-	for name, m := range a.models {
-		if name == a.focused {
-			um, cmd := m.Update(msg)
-			a.models[name] = um
-			return cmd
-		}
-	}
-	return nil
-}
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// log.Println("received msg type: ", reflect.TypeOf(msg))
@@ -247,11 +235,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case navNameMsg:
 		a.SetNavName(msg.name)
 		return a, nil
-	case FocusMsg:
-		cmd := a.SetFocus(msg.Name)
-		if cmd != nil {
-			return a, cmd
-		}
 	case *postResponseMsg:
 		_, cmd := a.publish.Update(msg)
 		return a, tea.Sequence(cmd, a.FocusPrev())
@@ -268,37 +251,20 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case *channelInfoMsg:
 		a.splash.SetInfo(msg.channel.Name)
 	case *api.FeedResponse:
-		// allow msg to pass through to profile's embedded feed
-		fm := a.GetFocused()
-		if a.focused == "profile" {
-			if p, ok := fm.(*Profile); ok {
-				p.feed.Clear()
-			}
-			_, cmd := fm.Update(msg)
-			return a, cmd
-		}
-		if a.focused == "feed" && a.prev == "feed" {
-			return a, nil
-		}
-		feed := a.GetModel("feed").(*FeedView)
-		feed.Clear()
-		focusCmd := a.SetFocus("feed")
+		// for first load
 		a.splash.SetInfo("loading channels...")
-		return a, tea.Batch(feed.setItems(msg.Casts), focusCmd)
-	case SelectProfileMsg:
-		focusCmd := a.SetFocus("profile")
-		cmd := a.GetModel("profile").(*Profile).SetFID(msg.fid)
-		return a, tea.Batch(focusCmd, cmd)
+		// pas through to feed or profile
+	// case SelectProfileMsg:
 	case SelectCastMsg:
 		nav := fmt.Sprintf("cast by @%s", msg.cast.Author.Username)
 		if msg.cast.ParentHash != "" {
 			nav = fmt.Sprintf("reply by @%s", msg.cast.Author.Username)
 		}
-
 		a.SetNavName(nav)
-		focusCmd := a.SetFocus("cast")
-		cmd := a.GetModel("cast").(*CastView).SetCast(msg.cast)
-		return a, tea.Sequence(cmd, focusCmd)
+		return a, tea.Sequence(
+			a.cast.SetCast(msg.cast),
+			a.FocusCast(),
+		)
 
 	case tea.WindowSizeMsg:
 		SetHeight(msg.Height)
@@ -337,11 +303,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Height: my,
 		}
 
-		for n, m := range a.models {
-			um, cmd := m.Update(childMsg)
-			a.models[n] = um
-			cmds = append(cmds, cmd)
-		}
+		_, fcmd := a.feed.Update(childMsg)
+		_, pcmd := a.profile.Update(childMsg)
+		_, ccmd := a.channel.Update(childMsg)
+		_, cscmd := a.cast.Update(childMsg)
+
+		cmds = append(cmds, fcmd, pcmd, ccmd, cscmd)
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q":

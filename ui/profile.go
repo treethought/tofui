@@ -32,6 +32,11 @@ func UserBio(user *api.User) string {
 
 }
 
+type profileFeedMsg struct {
+	fid   uint64
+	casts []*api.Cast
+}
+
 type SelectProfileMsg struct {
 	fid uint64
 }
@@ -50,10 +55,11 @@ type Profile struct {
 }
 
 func NewProfile(app *App) *Profile {
+	f := NewFeedView(app, feedTypeProfile)
 	return &Profile{
 		app:  app,
 		pfp:  NewImage(false, true, special),
-		feed: NewFeedView(app),
+		feed: f,
 	}
 }
 
@@ -65,6 +71,21 @@ func getUserCmd(client *api.Client, fid, viewer uint64) tea.Cmd {
 	}
 }
 
+func getUserFeedCmd(client *api.Client, fid, viewer uint64) tea.Cmd {
+	return func() tea.Msg {
+		req := &api.FeedRequest{
+			FeedType: "filter", FilterType: "fids", Limit: 100,
+			FIDs: []uint64{fid}, ViewerFID: viewer, FID: viewer,
+		}
+		feed, err := client.GetFeed(req)
+		if err != nil {
+			log.Println("feedview error getting feed", err)
+			return err
+		}
+		return &profileFeedMsg{fid, feed.Casts}
+	}
+}
+
 func (m *Profile) SetFID(fid uint64) tea.Cmd {
 	var viewer uint64
 	if m.app.ctx.signer != nil {
@@ -72,10 +93,8 @@ func (m *Profile) SetFID(fid uint64) tea.Cmd {
 	}
 	return tea.Batch(
 		getUserCmd(m.app.client, fid, viewer),
-		getFeedCmd(m.app.client, &api.FeedRequest{
-			FeedType: "filter", FilterType: "fids", Limit: 100,
-			FIDs: []uint64{fid}, ViewerFID: viewer, FID: viewer,
-		}))
+		getUserFeedCmd(m.app.client, fid, viewer),
+	)
 }
 
 func (m *Profile) Init() tea.Cmd {
@@ -94,6 +113,9 @@ func (m *Profile) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.feed.SetSize(fx, fy)
 		return m, nil
 
+	case *SelectProfileMsg:
+		return m, m.SetFID(msg.fid)
+
 	case ProfileMsg:
 		if msg.user != nil {
 			m.user = msg.user
@@ -104,22 +126,12 @@ func (m *Profile) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			)
 		}
 		return m, nil
-		// cmd := m.pfp.SetURL(m.user.PfpURL, false)
-		// case *api.FeedResponse:
-		//    log.Println("got feed", len(msg.Casts))
-		// 	return m, m.feed.setItems(msg)
 	}
 	_, fcmd := m.feed.Update(msg)
 	_, pcmd := m.pfp.Update(msg)
 	return m, tea.Batch(fcmd, pcmd)
 }
 func (m *Profile) View() string {
-
-	// profile := NewStyle().MaxHeight(2).Render(lipgloss.JoinHorizontal(lipgloss.Left,
-	//   UsernameHeader(m.user, m.pfp),
-	//   UserBio(m.user),
-	//   )
-
 	return lipgloss.JoinVertical(lipgloss.Center,
 		UsernameHeader(m.user, m.pfp),
 		UserBio(m.user),

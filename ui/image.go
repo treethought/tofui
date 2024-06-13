@@ -353,7 +353,6 @@ func (m *ImageModel) Update(msg tea.Msg) (*ImageModel, tea.Cmd) {
 		}
 	case decodeError:
 		if msg.url == m.URL {
-			log.Println("decode error: ", msg.url, msg.err.Error())
 			m.ImageString = NewStyle().
 				Width(m.Viewport.Width).
 				Height(m.Viewport.Height).

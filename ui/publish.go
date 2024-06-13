@@ -140,7 +140,6 @@ func (m *PublishInput) SetContext(parent, channel string, parentAuthor uint64) t
 			log.Println("error getting channel: ", err)
 			return nil
 		}
-		log.Println("got ctx: ", channel.Name, parentUser.Username)
 		return &ctxInfoMsg{user: parentUser, channel: channel}
 	}
 }
@@ -162,7 +161,6 @@ func (m *PublishInput) Clear() {
 func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case *ctxInfoMsg:
-		log.Println("got ctx msg: ", msg.channel.Name, msg.user.Username)
 		m.ctx.parentUser = msg.user
 		m.ctx.channel = msg.channel.Name
 		return m, nil
