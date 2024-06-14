@@ -107,10 +107,13 @@ func (m *Profile) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		x, y := msg.Width, msg.Height
 		m.pfp.SetSize(4, 4)
 
+		hy := lipgloss.Height(UsernameHeader(m.user, m.pfp))
+		by := lipgloss.Height(UserBio(m.user))
+
+		fy := y - hy - by
+
 		// TODO use size of header/stats
-		fx := x
-		fy := int(float64(y) * 0.6)
-		m.feed.SetSize(fx, fy)
+		m.feed.SetSize(x, fy)
 		return m, nil
 
 	case *SelectProfileMsg:

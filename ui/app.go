@@ -16,6 +16,10 @@ import (
 // TODO provide to models
 var renderer *lipgloss.Renderer = lipgloss.DefaultRenderer()
 
+var (
+	mainStyle = lipgloss.NewStyle().Margin(0).Padding(0).Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#874BFD"))
+)
+
 func NewStyle() lipgloss.Style {
 	return renderer.NewStyle()
 }
@@ -139,7 +143,6 @@ func NewApp(cfg *config.Config, ctx *AppContext) *App {
 
 	return a
 }
-
 
 func (a *App) SetNavName(name string) {
 	a.prevName = a.navname
@@ -271,9 +274,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		SetWidth(msg.Width)
 
 		a.statusLine.SetSize(msg.Width, 1)
+		_, statusHeight := lipgloss.Size(a.statusLine.View())
 
-		// set the height of the statusLine
-		wx, wy := msg.Width, msg.Height-1
+		wx, wy := msg.Width, msg.Height-statusHeight
 
 		sideMax := 30
 		sidePct := int(float64(wx) * 0.2)
@@ -281,23 +284,19 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if sideMax < sidePct {
 			sx = sideMax
 		}
-		a.sidebar.SetSize(sx, wy)
+		a.sidebar.SetSize(sx, wy-4)
+		sideWidth, _ := lipgloss.Size(a.sidebar.View())
 
-		qw := wx - sx
-		qh := wy - 10
-		a.quickSelect.SetSize(qw, qh)
-
-		pw := wx - sx
+		pw := wx - sideWidth
 		py := wy - 10
 		a.publish.SetSize(pw, py)
 		a.splash.SetSize(pw, py)
+		a.quickSelect.SetSize(pw, py)
+		a.help.SetSize(pw, py)
 
-		hw := wx - sx
-		hy := wy - 10
-		a.help.SetSize(hw, hy)
+		fx, fy := mainStyle.GetFrameSize()
+		mx, my := wx-sideWidth-fx-4, wy-fy
 
-		// substract the sidebar width from the window width
-		mx, my := wx-sx, wy
 		childMsg := tea.WindowSizeMsg{
 			Width:  mx,
 			Height: my,
@@ -394,21 +393,11 @@ func (a *App) View() string {
 		main = a.help.View()
 	}
 
+	main = mainStyle.Render(main)
+
 	return lipgloss.JoinVertical(lipgloss.Top,
 		lipgloss.JoinHorizontal(lipgloss.Center, side, main),
 		a.statusLine.View(),
 	)
 
-}
-
-func UpdateChildren(msg tea.Msg, models ...tea.Model) tea.Cmd {
-	cmds := make([]tea.Cmd, len(models))
-
-	// Only text inputs with Focus() set will respond, so it's safe to simply
-	// update all of them here without any further logic.
-	for i := range models {
-		models[i], cmds[i] = models[i].Update(msg)
-	}
-
-	return tea.Batch(cmds...)
 }

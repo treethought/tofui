@@ -59,7 +59,7 @@ func (i *sidebarItem) Description() string {
 	return ""
 }
 
-var navStyle = NewStyle().Margin(2, 2, 0, 2).BorderRight(true).BorderStyle(lipgloss.RoundedBorder())
+var navStyle = NewStyle().Margin(2, 2, 0, 0).BorderRight(true).BorderStyle(lipgloss.RoundedBorder())
 
 func NewSidebar(app *App) *Sidebar {
 	d := list.NewDefaultDelegate()
@@ -84,10 +84,10 @@ func NewSidebar(app *App) *Sidebar {
 
 func (m *Sidebar) SetSize(w, h int) {
 	x, y := navStyle.GetFrameSize()
-	m.nav.SetWidth(w - x)
-	m.nav.SetHeight(h - y - 4)
+	m.w, m.h = w-x, h-y
+	m.nav.SetWidth(m.w)
+	m.nav.SetHeight(m.h)
 	m.pfp.SetSize(4, 4)
-	m.w, m.h = w, h
 }
 
 func (m *Sidebar) Active() bool {
@@ -149,7 +149,11 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if fid == 0 {
 					return m, nil
 				}
-				return m, tea.Sequence(m.app.FocusProfile(), selectProfileCmd(fid))
+				return m, tea.Sequence(
+					m.app.FocusProfile(),
+					getUserCmd(m.app.client, fid, m.app.ctx.signer.FID),
+					getUserFeedCmd(m.app.client, fid, m.app.ctx.signer.FID),
+				)
 			}
 			if currentItem.name == "feed" {
 				m.SetActive(false)

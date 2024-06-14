@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	docStyle           = NewStyle().Margin(2, 2).Align(lipgloss.Center)
-	channelHeaderStyle = NewStyle().Margin(1, 1).Align(lipgloss.Center).Border(lipgloss.RoundedBorder())
+	feedStyle          = NewStyle().Margin(2, 2).Align(lipgloss.Center)
+	channelHeaderStyle = NewStyle().Margin(1, 1).Align(lipgloss.Top).Border(lipgloss.RoundedBorder())
 )
 
 type feedType string
@@ -141,8 +141,8 @@ func (m *FeedView) SetShowStats(show bool) {
 }
 
 func (m *FeedView) setTableConfig() {
-	fw, _ := docStyle.GetFrameSize()
-	w := m.table.Width() - fw
+	fx, _ := feedStyle.GetFrameSize()
+	w := m.table.Width() - fx //- 10
 
 	if !m.showChannel && !m.showStats {
 		m.table.SetColumns([]table.Column{
@@ -155,7 +155,7 @@ func (m *FeedView) setTableConfig() {
 		{Title: "channel", Width: int(float64(w) * 0.2)},
 		{Title: "", Width: int(float64(w) * 0.1)},
 		{Title: "user", Width: int(float64(w) * 0.2)},
-		{Title: "cast", Width: int(float64(w) * 0.5)},
+		{Title: "cast", Width: int(float64(w)*0.5) - 4},
 	})
 	return
 
@@ -301,31 +301,36 @@ func (m *FeedView) getCurrentItem() *CastFeedItem {
 	}
 	return m.items[row]
 }
-func (m *FeedView) SetSize(w, h int) {
-	m.w, m.h = w, h
-	docStyle = docStyle.MaxWidth(w).MaxHeight(h)
-	dsx, dsy := docStyle.GetFrameSize()
-	tstyle := getTableStyles().Selected
-	tsx, tsy := tstyle.GetFrameSize()
-	x, y := dsx+tsx, dsy+tsy
 
-	m.headerImg.SetSize(4, 4)
-
-	m.table.SetWidth(w - x)
-
-	hh := h - y
+func (m *FeedView) hideDescription() {
 	m.descVp.Width = 0
 	m.descVp.Height = 0
-	m.descVp.Style = NewStyle()
+	m.headerImg.SetSize(0, 0)
+
+}
+
+func (m *FeedView) SetSize(w, h int) {
+	m.w, m.h = w, h
+
+	m.hideDescription()
 	if m.description != "" {
-		m.descVp.Width = w - x
-		m.descVp.Height = 4
-		m.descVp.Style = channelHeaderStyle
-		dy := lipgloss.Height(m.descVp.View())
-		hh = hh - dy - 5
+		m.descVp.SetContent(m.description)
+		dmin := 8
+		dPct := int(float64(h) * 0.2)
+		dy := dPct
+		if dmin > dPct {
+			dy = dmin
+		}
+		m.headerImg.SetSize(4, 4)
+		fx, fy := channelHeaderStyle.GetFrameSize()
+		m.descVp.Width = w - fx - 4
+		m.descVp.Height = dy - fy
 	}
 
-	m.table.SetHeight(hh)
+	_, dy := lipgloss.Size(channelHeaderStyle.Render(m.descVp.View()))
+	fx, fy := feedStyle.GetFrameSize()
+	m.table.SetWidth(w - fx)
+	m.table.SetHeight(h - fy - dy )
 	m.setTableConfig()
 
 	lw := int(float64(w) * 0.2)
@@ -416,7 +421,6 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case *api.FeedResponse:
-		m.Clear()
 		return m, m.setItems(msg.Casts)
 	case *channelFeedMsg:
 		if msg.err != nil {
@@ -490,12 +494,12 @@ func (m *FeedView) View() string {
 	}
 	if m.feedType == feedTypeChannel {
 		return lipgloss.JoinVertical(lipgloss.Top,
-			docStyle.Render(m.descVp.View()),
-			docStyle.Render(m.table.View()),
+			channelHeaderStyle.Render(m.descVp.View()),
+			feedStyle.Render(m.table.View()),
 		)
 	}
 
-	return docStyle.Render(m.table.View())
+	return feedStyle.Render(m.table.View())
 
 }
 
@@ -528,6 +532,6 @@ func channelHeader(c *api.Channel, img *ImageModel) string {
 func channelDescription(c *api.Channel, img *ImageModel) string {
 	return lipgloss.JoinVertical(lipgloss.Bottom,
 		channelHeader(c, img),
-		NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderBottom(true).Padding(0).Render(channelStats(c, 10)),
+		NewStyle().BorderStyle(lipgloss.NormalBorder()).BorderBottom(true).Padding(0).Render(channelStats(c, 1)),
 	)
 }

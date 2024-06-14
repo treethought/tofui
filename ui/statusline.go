@@ -6,6 +6,8 @@ import (
 	"github.com/mistakenelf/teacup/statusbar"
 )
 
+var statusStyle = NewStyle().BorderTop(true).BorderStyle(lipgloss.RoundedBorder())
+
 type StatusLine struct {
 	app  *App
 	sb   statusbar.Model
@@ -41,8 +43,9 @@ func NewStatusLine(app *App) *StatusLine {
 }
 
 func (m *StatusLine) SetSize(width, height int) {
-	m.sb.SetSize(width)
-	m.sb.Height = 1
+	fx, _ := statusStyle.GetFrameSize()
+	m.sb.SetSize(width - fx)
+	m.sb.Height = 1 
 }
 
 func (m *StatusLine) Init() tea.Cmd {
@@ -56,5 +59,5 @@ func (m *StatusLine) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *StatusLine) View() string {
-	return m.sb.View()
+	return statusStyle.Render(m.sb.View())
 }
