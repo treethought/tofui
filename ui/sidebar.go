@@ -59,7 +59,7 @@ func (i *sidebarItem) Description() string {
 	return ""
 }
 
-var navStyle = NewStyle().Margin(2, 2, 0, 2).BorderRight(true).BorderStyle(lipgloss.RoundedBorder())
+var navStyle = NewStyle().Margin(2, 2, 0, 0).BorderRight(true).BorderStyle(lipgloss.RoundedBorder())
 
 func NewSidebar(app *App) *Sidebar {
 	d := list.NewDefaultDelegate()
@@ -84,10 +84,10 @@ func NewSidebar(app *App) *Sidebar {
 
 func (m *Sidebar) SetSize(w, h int) {
 	x, y := navStyle.GetFrameSize()
-	m.nav.SetWidth(w - x)
-	m.nav.SetHeight(h - y - 4)
+	m.w, m.h = w-x, h-y
+	m.nav.SetWidth(m.w)
+	m.nav.SetHeight(m.h)
 	m.pfp.SetSize(4, 4)
-	m.w, m.h = w, h
 }
 
 func (m *Sidebar) Active() bool {
@@ -149,20 +149,24 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if fid == 0 {
 					return m, nil
 				}
-				return m, tea.Sequence(m.app.SetFocus("profile"), selectProfileCmd(fid))
+				return m, tea.Sequence(
+					m.app.FocusProfile(),
+					getUserCmd(m.app.client, fid, m.app.ctx.signer.FID),
+					getUserFeedCmd(m.app.client, fid, m.app.ctx.signer.FID),
+				)
 			}
 			if currentItem.name == "feed" {
 				m.SetActive(false)
 				log.Println("feed selected")
-				return m, tea.Sequence(m.app.SetFocus("feed"), getDefaultFeedCmd(m.app.client, m.app.ctx.signer))
+				return m, tea.Sequence(m.app.FocusFeed(), getDefaultFeedCmd(m.app.client, m.app.ctx.signer))
 			}
 			if currentItem.itype == "channel" {
 				m.SetActive(false)
 				m.app.SetNavName(fmt.Sprintf("channel: %s", currentItem.name))
-				return m, tea.Sequence(
-					m.app.SetFocus("feed"),
-					getFeedCmd(m.app.client,
-						&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: currentItem.value, Limit: 100}),
+				return m, tea.Batch(
+					getChannelFeedCmd(m.app.client, currentItem.value),
+					fetchChannelCmd(m.app.client, currentItem.value),
+					m.app.FocusChannel(),
 				)
 			}
 		}

@@ -32,7 +32,7 @@ func getConvoCmd(client *api.Client, signer *api.Signer, hash string) tea.Cmd {
 }
 
 func NewRepliesView(app *App) *RepliesView {
-	feed := NewFeedView(app)
+	feed := NewFeedView(app, feedTypeReplies)
 	feed.SetShowChannel(false)
 	feed.SetShowStats(false)
 	return &RepliesView{

@@ -120,24 +120,29 @@ func (m *QuickSelect) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		if msg.String() == "enter" {
-			currentItem := m.channels.SelectedItem().(*selectItem)
+			currentItem, ok := m.channels.SelectedItem().(*selectItem)
+			if !ok {
+				log.Println("no item selected")
+				return m, nil
+			}
 			if currentItem.name == "profile" {
 				log.Println("profile selected")
 				if m.app.ctx.signer == nil {
 					return m, nil
 				}
 				return m, tea.Sequence(
-					m.app.SetFocus("profile"), selectProfileCmd(m.app.ctx.signer.FID),
+					selectProfileCmd(m.app.ctx.signer.FID),
+					m.app.FocusProfile(),
 				)
 			}
 			if currentItem.name == "feed" {
 				log.Println("feed selected")
-				return m, tea.Sequence(m.app.SetFocus("feed"), getDefaultFeedCmd(m.app.client, m.app.ctx.signer))
+				return m, tea.Sequence(m.app.FocusFeed(), getDefaultFeedCmd(m.app.client, m.app.ctx.signer))
 			}
 			if currentItem.itype == "channel" {
 				log.Println("channel selected")
 				return m, tea.Sequence(
-					m.app.SetFocus("feed"),
+					m.app.FocusChannel(),
 					getFeedCmd(m.app.client, &api.FeedRequest{
 						FeedType: "filter", FilterType: "parent_url",
 						ParentURL: currentItem.value, Limit: 100,
