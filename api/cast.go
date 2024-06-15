@@ -29,6 +29,7 @@ type Reactions struct {
 }
 
 type Cast struct {
+	Object       string `json:"object"`
 	Hash         string `json:"hash"`
 	ThreadHash   string `json:"thread_hash"`
 	ParentHash   string `json:"parent_hash"`

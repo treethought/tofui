@@ -51,20 +51,21 @@ type AppContext struct {
 }
 
 type App struct {
-	ctx          *AppContext
-	client       *api.Client
-	cfg          *config.Config
-	focusedModel tea.Model
-	focused      string
-	navname      string
-	sidebar      *Sidebar
-	showSidebar  bool
-	prev         string
-	prevName     string
-	quickSelect  *QuickSelect
-	publish      *PublishInput
-	statusLine   *StatusLine
-	// signinPrompt    *SigninPrompt
+	ctx           *AppContext
+	client        *api.Client
+	cfg           *config.Config
+	focusedModel  tea.Model
+	focused       string
+	navname       string
+	sidebar       *Sidebar
+	showSidebar   bool
+	prev          string
+	prevName      string
+	quickSelect   *QuickSelect
+	publish       *PublishInput
+	statusLine    *StatusLine
+	notifications *NotificationsView
+
 	splash *SplashView
 	help   *HelpView
 
@@ -135,6 +136,7 @@ func NewApp(cfg *config.Config, ctx *AppContext) *App {
 	a.publish = NewPublishInput(a)
 	a.statusLine = NewStatusLine(a)
 	a.help = NewHelpView(a)
+	a.notifications = NewNotificationsView(a)
 	a.splash = NewSplashView(a)
 	a.splash.SetActive(true)
 	if a.ctx.signer == nil {
@@ -162,6 +164,27 @@ func (a *App) focusMain() {
 	if a.help.IsFull() {
 		a.help.SetFull(false)
 	}
+	if a.notifications.Active() {
+		a.notifications.SetActive(false)
+	}
+}
+
+func (a *App) FocusPublish() {
+	a.publish.SetActive(true)
+	a.publish.SetFocus(true)
+}
+func (a *App) FocusHelp() {
+	a.help.SetFull(!a.help.IsFull())
+}
+func (a *App) FocusQuickSelect() {
+	a.quickSelect.SetActive(true)
+}
+func (a *App) FocusNotifications() tea.Cmd {
+	a.notifications.SetActive(true)
+	return a.notifications.Init()
+}
+func (a *App) ToggleHelp() {
+	a.help.SetFull(!a.help.IsFull())
 }
 
 func (a *App) FocusFeed() tea.Cmd {
@@ -216,7 +239,11 @@ func (a *App) FocusPrev() tea.Cmd {
 
 func (a *App) Init() tea.Cmd {
 	cmds := []tea.Cmd{}
-	cmds = append(cmds, a.splash.Init(), a.sidebar.Init(), a.quickSelect.Init(), a.publish.Init())
+	cmds = append(cmds,
+		a.splash.Init(), a.sidebar.Init(),
+		a.quickSelect.Init(), a.publish.Init(),
+		a.notifications.Init(),
+	)
 	focus := a.GetFocused()
 	if focus != nil {
 		cmds = append(cmds, focus.Init())
@@ -231,6 +258,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	_, sbcmd := a.statusLine.Update(msg)
 	cmds = append(cmds, sbcmd)
 	switch msg := msg.(type) {
+	case *notificationsMsg:
+		_, cmd := a.notifications.Update(msg)
+		return a, cmd
 	case *UpdateSignerMsg:
 		a.ctx.signer = msg.Signer
 		a.splash.ShowSignin(false)
@@ -300,6 +330,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.publish.SetSize(dialogX, dialogY)
 		a.quickSelect.SetSize(dialogX, dialogY)
 		a.help.SetSize(dialogX, dialogY)
+		a.notifications.SetSize(dialogX, dialogY)
 
 		childMsg := tea.WindowSizeMsg{
 			Width:  mx,
@@ -318,7 +349,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "q":
 			return a, tea.Quit
 		}
-
+		cmd := NavKeyMap.HandleMsg(a, msg)
+		if cmd != nil {
+			return a, cmd
+		}
+		if a.sidebar.Active() {
+			_, cmd := a.sidebar.Update(msg)
+			return a, cmd
+		}
 		if a.splash.Active() {
 			_, cmd := a.splash.Update(msg)
 			return a, cmd
@@ -328,9 +366,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, cmd
 		}
 
-		cmd := NavKeyMap.HandleMsg(a, msg)
-		if cmd != nil {
-			return a, cmd
+		if a.notifications.Active() {
+			_, cmd := a.notifications.Update(msg)
+			cmds = append(cmds, cmd)
 		}
 
 	case *currentAccountMsg:
@@ -382,6 +420,9 @@ func (a *App) View() string {
 	if a.splash.Active() {
 		main = lipgloss.Place(GetWidth(), GetHeight(), lipgloss.Center, lipgloss.Center, a.splash.View())
 		return main
+	}
+	if a.notifications.Active() {
+		main = a.notifications.View()
 	}
 
 	if a.publish.Active() {

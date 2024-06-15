@@ -85,12 +85,14 @@ type navKeymap struct {
 	ToggleSidebarFocus      key.Binding
 	ToggleSidebarVisibility key.Binding
 	Previous                key.Binding
+	ViewNotifications       key.Binding
 }
 
 func (k navKeymap) ShortHelp() []key.Binding {
 	return []key.Binding{
 		k.Feed,
 		k.QuickSelect,
+		k.ViewNotifications,
 		k.Help,
 	}
 }
@@ -99,6 +101,7 @@ func (k navKeymap) All() []key.Binding {
 	return []key.Binding{
 		k.Feed, k.QuickSelect,
 		k.Publish,
+		k.ViewNotifications,
 		k.Previous,
 		k.Help,
 		k.ToggleSidebarFocus, k.ToggleSidebarVisibility,
@@ -134,6 +137,10 @@ var NavKeyMap = navKeymap{
 		key.WithKeys("esc"),
 		key.WithHelp("esc", "focus previous"),
 	),
+	ViewNotifications: key.NewBinding(
+		key.WithKeys("N"),
+		key.WithHelp("N", "view notifications"),
+	),
 }
 
 func (k navKeymap) HandleMsg(a *App, msg tea.KeyMsg) tea.Cmd {
@@ -147,16 +154,19 @@ func (k navKeymap) HandleMsg(a *App, msg tea.KeyMsg) tea.Cmd {
 		return tea.Sequence(cmd, a.FocusFeed())
 
 	case key.Matches(msg, k.Publish):
-		a.publish.SetActive(true)
-		a.publish.SetFocus(true)
+		a.FocusPublish()
 		return noOp()
 
 	case key.Matches(msg, k.QuickSelect):
-		a.quickSelect.SetActive(true)
+		a.FocusQuickSelect()
 		return nil
 
 	case key.Matches(msg, k.Help):
-		a.help.SetFull(!a.help.IsFull())
+		a.FocusHelp()
+
+	case key.Matches(msg, k.ViewNotifications):
+		log.Println("ViewNotifications")
+		return a.FocusNotifications()
 
 	case key.Matches(msg, k.Previous):
 		return a.FocusPrev()
