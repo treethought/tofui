@@ -178,6 +178,13 @@ func (m *NotificationsView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !ok {
 				return m, noOp()
 			}
+			switch item.Type {
+			case api.NotificationsTypeLikes, api.NotificationsTypeRecasts, api.NotificationsTypeReply:
+				return m, tea.Sequence(
+					m.app.FocusCast(),
+					selectCast(item.Cast),
+				)
+			}
 			d, _ := json.MarshalIndent(item, "", "  ")
 			log.Println(string(d))
 			return m, noOp()
