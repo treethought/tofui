@@ -43,7 +43,7 @@ type keyMap struct {
 }
 
 func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Cast, k.Back}
+	return []key.Binding{k.Cast, k.Back, k.ChooseChannel}
 }
 
 func (k keyMap) FullHelp() [][]key.Binding {
@@ -62,9 +62,13 @@ var keys = keyMap{
 		key.WithKeys("esc"),
 		key.WithHelp("esc", "back to feed"),
 	),
+	ChooseChannel: key.NewBinding(
+		key.WithKeys("ctrl+w"),
+		key.WithHelp("ctrl+w", "choose channel"),
+	),
 }
 
-type ctx struct {
+type castContext struct {
 	channel      string
 	parent       string
 	parentAuthor uint64
@@ -80,7 +84,8 @@ type PublishInput struct {
 	showConfirm bool
 	active      bool
 	w, h        int
-	ctx         ctx
+	castCtx     castContext
+	qs          *QuickSelect
 }
 
 func NewPublishInput(app *App) *PublishInput {
@@ -97,11 +102,17 @@ func NewPublishInput(app *App) *PublishInput {
 	vp := viewport.New(0, 0)
 	vp.SetContent(ta.View())
 
-	return &PublishInput{ta: &ta, vp: &vp, keys: keys, help: help.New(), app: app}
+	qs := NewQuickSelect(app)
+
+	return &PublishInput{ta: &ta, vp: &vp, keys: keys, help: help.New(), app: app, qs: qs}
 }
 
 func (m *PublishInput) Init() tea.Cmd {
-	return nil
+	m.qs.SetOnSelect(func(i *selectItem) tea.Cmd {
+		m.qs.SetActive(false)
+		return m.SetContext("", i.name, 0)
+	})
+	return m.qs.Init()
 }
 
 func (m *PublishInput) Active() bool {
@@ -118,27 +129,39 @@ func (m *PublishInput) SetSize(w, h int) {
 	m.ta.SetHeight(h)
 	m.vp.Width = w
 	m.vp.Height = h
+	m.qs.SetSize(w, h)
 }
 
-func (m *PublishInput) SetContext(parent, channel string, parentAuthor uint64) tea.Cmd {
+func (m *PublishInput) SetContext(parent, channelParentUrl string, parentAuthor uint64) tea.Cmd {
 	return func() tea.Msg {
-		m.ctx.channel = channel
-		m.ctx.parent = parent
-		m.ctx.parentAuthor = parentAuthor
-		m.ctx.parentUser = nil
+		m.castCtx.channel = channelParentUrl
+		m.castCtx.parent = parent
+		m.castCtx.parentAuthor = parentAuthor
+		m.castCtx.parentUser = nil
 		var viewer uint64
 		if m.app.ctx.signer != nil {
 			viewer = m.app.ctx.signer.FID
 		}
-		parentUser, err := m.app.client.GetUserByFID(parentAuthor, viewer)
-		if err != nil {
-			log.Println("error getting parent author: ", err)
-			return nil
+		var parentUser *api.User
+		var channel *api.Channel
+		var err error
+		if parentAuthor > 0 {
+			parentUser, err = m.app.client.GetUserByFID(parentAuthor, viewer)
+			if err != nil {
+				log.Println("error getting parent author: ", err)
+				return nil
+			}
 		}
-		channel, err := m.app.client.GetChannelByParentUrl(channel)
-		if err != nil {
-			log.Println("error getting channel: ", err)
-			return nil
+		if channelParentUrl != "" {
+			channel, err = m.app.client.GetChannelByParentUrl(channelParentUrl)
+			if err != nil {
+				log.Println("error getting channel by parent url, trying channel id: ", err)
+				channel, err = m.app.client.GetChannelById(channelParentUrl)
+				if err != nil {
+					log.Println("error getting channel by id: ", err)
+					return nil
+				}
+			}
 		}
 		return &ctxInfoMsg{user: parentUser, channel: channel}
 	}
@@ -156,13 +179,16 @@ func (m *PublishInput) Clear() {
 	m.vp.SetContent(m.ta.View())
 	m.showConfirm = false
 	m.SetFocus(false)
+	m.SetContext("", "", 0)
 }
 
 func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case *ctxInfoMsg:
-		m.ctx.parentUser = msg.user
-		m.ctx.channel = msg.channel.Name
+		m.castCtx.parentUser = msg.user
+		if msg.channel != nil {
+			m.castCtx.channel = msg.channel.Name
+		}
 		return m, nil
 	case *postResponseMsg:
 		if msg.err != nil {
@@ -182,6 +208,10 @@ func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "ctrl+c" {
 			return nil, tea.Quit
 		}
+		if m.qs.Active() {
+			_, cmd := m.qs.Update(msg)
+			return m, cmd
+		}
 
 		switch {
 		case key.Matches(msg, m.keys.Cast):
@@ -190,13 +220,16 @@ func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Back):
 			m.active = false
 			return nil, nil
+		case key.Matches(msg, m.keys.ChooseChannel):
+			m.qs.SetActive(true)
 		}
 
 		if m.showConfirm {
 			if msg.String() == "y" || msg.String() == "Y" {
 				return m, postCastCmd(
 					m.app.client, m.app.ctx.signer,
-					m.ta.Value(), m.ctx.parent, m.ctx.channel, m.ctx.parentAuthor,
+					m.ta.Value(), m.castCtx.parent,
+					m.castCtx.channel, m.castCtx.parentAuthor,
 				)
 			} else if msg.String() == "n" || msg.String() == "N" || msg.String() == "esc" {
 				m.showConfirm = false
@@ -210,9 +243,14 @@ func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	ta, cmd := m.ta.Update(msg)
+	var cmds []tea.Cmd
+	_, cmd := m.qs.Update(msg)
+	cmds = append(cmds, cmd)
+
+	ta, tcmd := m.ta.Update(msg)
 	m.ta = &ta
-	return m, cmd
+	cmds = append(cmds, tcmd)
+	return m, tea.Batch(cmds...)
 }
 
 func (m *PublishInput) viewConfirm() string {
@@ -225,6 +263,9 @@ func (m *PublishInput) View() string {
 	content := m.ta.View()
 	if m.showConfirm {
 		content = m.viewConfirm()
+	} else if m.qs.Active() {
+		content = m.qs.View()
+
 	} else {
 		content = lipgloss.JoinVertical(lipgloss.Top,
 			content,
@@ -233,10 +274,10 @@ func (m *PublishInput) View() string {
 	}
 
 	titleText := "publish cast"
-	if m.ctx.parentUser != nil {
-		titleText = fmt.Sprintf("reply to @%s", m.ctx.parentUser.Username)
-	} else if m.ctx.channel != "" {
-		titleText = fmt.Sprintf("publish cast to channel: /%s", m.ctx.channel)
+	if m.castCtx.parentUser != nil {
+		titleText = fmt.Sprintf("reply to @%s", m.castCtx.parentUser.Username)
+	} else if m.castCtx.channel != "" {
+		titleText = fmt.Sprintf("publish cast to channel: /%s", m.castCtx.channel)
 	}
 
 	titleStyle := NewStyle().Foreground(lipgloss.Color("#874BFD")).BorderBottom(true).BorderStyle(lipgloss.NormalBorder())

@@ -152,7 +152,7 @@ func (k navKeymap) HandleMsg(a *App, msg tea.KeyMsg) tea.Cmd {
 		return noOp()
 
 	case key.Matches(msg, k.QuickSelect):
-		a.showQuickSelect = true
+		a.quickSelect.SetActive(true)
 		return nil
 
 	case key.Matches(msg, k.Help):
@@ -172,7 +172,7 @@ func (k navKeymap) HandleMsg(a *App, msg tea.KeyMsg) tea.Cmd {
 		return noOp()
 
 	case key.Matches(msg, k.ToggleSidebarFocus):
-		if a.showQuickSelect {
+		if a.quickSelect.Active() {
 			_, cmd := a.quickSelect.Update(msg)
 			return cmd
 		}

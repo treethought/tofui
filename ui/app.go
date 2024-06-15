@@ -49,20 +49,19 @@ type AppContext struct {
 }
 
 type App struct {
-	ctx             *AppContext
-	client          *api.Client
-	cfg             *config.Config
-	focusedModel    tea.Model
-	focused         string
-	navname         string
-	sidebar         *Sidebar
-	showSidebar     bool
-	prev            string
-	prevName        string
-	quickSelect     *QuickSelect
-	showQuickSelect bool
-	publish         *PublishInput
-	statusLine      *StatusLine
+	ctx          *AppContext
+	client       *api.Client
+	cfg          *config.Config
+	focusedModel tea.Model
+	focused      string
+	navname      string
+	sidebar      *Sidebar
+	showSidebar  bool
+	prev         string
+	prevName     string
+	quickSelect  *QuickSelect
+	publish      *PublishInput
+	statusLine   *StatusLine
 	// signinPrompt    *SigninPrompt
 	splash *SplashView
 	help   *HelpView
@@ -150,8 +149,8 @@ func (a *App) SetNavName(name string) {
 }
 
 func (a *App) focusMain() {
-	if a.showQuickSelect {
-		a.showQuickSelect = false
+	if a.quickSelect.Active() {
+		a.quickSelect.SetActive(false)
 	}
 	if a.publish.Active() {
 		a.publish.SetActive(false)
@@ -245,10 +244,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.activeOnly {
 			_, cmd := a.sidebar.Update(msg)
 			return a, cmd
-		} else {
-			_, cmd := a.quickSelect.Update(msg.channels)
-			return a, cmd
 		}
+		_, qcmd := a.quickSelect.Update(msg.channels)
+		_, pcmd := a.publish.Update(msg.channels)
+		return a, tea.Batch(qcmd, pcmd)
 	case *feedLoadedMsg:
 		a.splash.SetActive(false)
 	case *channelInfoMsg:
@@ -338,7 +337,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		_, cmd := a.publish.Update(msg)
 		return a, cmd
 	}
-	if a.showQuickSelect {
+	if a.quickSelect.Active() {
 		q, cmd := a.quickSelect.Update(msg)
 		a.quickSelect = q.(*QuickSelect)
 		return a, cmd
@@ -382,7 +381,7 @@ func (a *App) View() string {
 	if a.publish.Active() {
 		main = a.publish.View()
 	}
-	if a.showQuickSelect {
+	if a.quickSelect.Active() {
 		main = a.quickSelect.View()
 	}
 	if !a.showSidebar {
