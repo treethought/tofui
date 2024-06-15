@@ -95,7 +95,7 @@ func NewPublishInput(app *App) *PublishInput {
 	} else {
 		ta.Placeholder = "publish cast..."
 	}
-	ta.CharLimit = 320
+	ta.CharLimit = 1024
 	ta.ShowLineNumbers = false
 	ta.Prompt = ""
 
