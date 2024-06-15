@@ -11,10 +11,11 @@ import (
 )
 
 type QuickSelect struct {
-	app      *App
-	active   bool
-	channels *list.Model
-	w, h     int
+	app         *App
+	active      bool
+	channelList *list.Model
+	w, h        int
+	onSelect    func(i *selectItem) tea.Cmd
 }
 
 type selectItem struct {
@@ -47,7 +48,7 @@ func NewQuickSelect(app *App) *QuickSelect {
 	l.KeyMap.CursorUp.SetKeys("k", "up")
 	l.KeyMap.CursorDown.SetKeys("j", "down")
 	l.KeyMap.Quit.SetKeys("ctrl+c")
-	l.Title = "channel switcher"
+	l.Title = "select channel"
 	l.SetShowTitle(true)
 	l.SetFilteringEnabled(true)
 	l.SetShowFilter(true)
@@ -55,7 +56,7 @@ func NewQuickSelect(app *App) *QuickSelect {
 	l.SetShowStatusBar(true)
 	l.SetShowPagination(true)
 
-	return &QuickSelect{app: app, channels: &l}
+	return &QuickSelect{app: app, channelList: &l}
 }
 
 type channelListMsg struct {
@@ -93,11 +94,20 @@ func getChannelsCmd(client *api.Client, activeOnly bool, fid uint64) tea.Cmd {
 		return msg
 	}
 }
+func (m *QuickSelect) SetOnSelect(f func(i *selectItem) tea.Cmd) {
+	m.onSelect = f
+}
 
 func (m *QuickSelect) SetSize(w, h int) {
 	m.w = w
 	m.h = h
-	m.channels.SetSize(w, h)
+	m.channelList.SetSize(w, h)
+}
+func (m *QuickSelect) Active() bool {
+	return m.active
+}
+func (m *QuickSelect) SetActive(active bool) {
+	m.active = active
 }
 
 func (m *QuickSelect) Init() tea.Cmd {
@@ -116,11 +126,20 @@ func (m *QuickSelect) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for _, c := range msg {
 			items = append(items, &selectItem{name: c.Name, value: c.ParentURL, itype: "channel"})
 		}
-		return m, m.channels.SetItems(items)
+		return m, m.channelList.SetItems(items)
 
 	case tea.KeyMsg:
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+		if !m.active {
+			return m, nil
+		}
 		if msg.String() == "enter" {
-			currentItem, ok := m.channels.SelectedItem().(*selectItem)
+			if m.onSelect != nil {
+				return m, m.onSelect(m.channelList.SelectedItem().(*selectItem))
+			}
+			currentItem, ok := m.channelList.SelectedItem().(*selectItem)
 			if !ok {
 				log.Println("no item selected")
 				return m, nil
@@ -151,24 +170,17 @@ func (m *QuickSelect) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	}
-	l, cmd := m.channels.Update(msg)
-	m.channels = &l
+	l, cmd := m.channelList.Update(msg)
+	m.channelList = &l
 	return m, cmd
 }
 
-var dialogBoxStyle = NewStyle().
-	Border(lipgloss.RoundedBorder()).
-	BorderForeground(lipgloss.Color("#874BFD")).
-	Padding(1, 0).
-	BorderTop(true).
-	BorderLeft(true).
-	BorderRight(true).
-	BorderBottom(true)
+var dialogBoxStyle = NewStyle()
 
 func (m *QuickSelect) View() string {
-	dialog := lipgloss.Place(10, 10,
+	dialog := lipgloss.Place(m.h, m.h,
 		lipgloss.Center, lipgloss.Center,
-		dialogBoxStyle.Width(m.w).Height(m.h).Render(m.channels.View()),
+		dialogBoxStyle.Render(m.channelList.View()),
 		lipgloss.WithWhitespaceChars("~~"),
 		lipgloss.WithWhitespaceForeground(subtle),
 	)

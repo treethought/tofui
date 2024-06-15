@@ -16,8 +16,10 @@ import (
 // TODO provide to models
 var renderer *lipgloss.Renderer = lipgloss.DefaultRenderer()
 
+var activeColor = lipgloss.AdaptiveColor{Dark: "#874BFD", Light: "#874BFD"}
+
 var (
-	mainStyle = lipgloss.NewStyle().Margin(0).Padding(0).Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#874BFD"))
+	mainStyle = lipgloss.NewStyle().Margin(0).Padding(0).Border(lipgloss.RoundedBorder())
 )
 
 func NewStyle() lipgloss.Style {
@@ -49,20 +51,19 @@ type AppContext struct {
 }
 
 type App struct {
-	ctx             *AppContext
-	client          *api.Client
-	cfg             *config.Config
-	focusedModel    tea.Model
-	focused         string
-	navname         string
-	sidebar         *Sidebar
-	showSidebar     bool
-	prev            string
-	prevName        string
-	quickSelect     *QuickSelect
-	showQuickSelect bool
-	publish         *PublishInput
-	statusLine      *StatusLine
+	ctx          *AppContext
+	client       *api.Client
+	cfg          *config.Config
+	focusedModel tea.Model
+	focused      string
+	navname      string
+	sidebar      *Sidebar
+	showSidebar  bool
+	prev         string
+	prevName     string
+	quickSelect  *QuickSelect
+	publish      *PublishInput
+	statusLine   *StatusLine
 	// signinPrompt    *SigninPrompt
 	splash *SplashView
 	help   *HelpView
@@ -150,8 +151,8 @@ func (a *App) SetNavName(name string) {
 }
 
 func (a *App) focusMain() {
-	if a.showQuickSelect {
-		a.showQuickSelect = false
+	if a.quickSelect.Active() {
+		a.quickSelect.SetActive(false)
 	}
 	if a.publish.Active() {
 		a.publish.SetActive(false)
@@ -245,10 +246,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.activeOnly {
 			_, cmd := a.sidebar.Update(msg)
 			return a, cmd
-		} else {
-			_, cmd := a.quickSelect.Update(msg.channels)
-			return a, cmd
 		}
+		_, qcmd := a.quickSelect.Update(msg.channels)
+		_, pcmd := a.publish.Update(msg.channels)
+		return a, tea.Batch(qcmd, pcmd)
 	case *feedLoadedMsg:
 		a.splash.SetActive(false)
 	case *channelInfoMsg:
@@ -277,25 +278,28 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		_, statusHeight := lipgloss.Size(a.statusLine.View())
 
 		wx, wy := msg.Width, msg.Height-statusHeight
+		fx, fy := mainStyle.GetFrameSize()
+		wx = wx - fx
+		wy = wy - fy
 
-		sideMax := 30
-		sidePct := int(float64(wx) * 0.2)
-		sx := sidePct
-		if sideMax < sidePct {
-			sx = sideMax
-		}
-		a.sidebar.SetSize(sx, wy-4)
+		spx := min(80, wx-10)
+		spy := min(80, wy-10)
+
+		a.splash.SetSize(spx, spy)
+
+		sx := min(30, int(float64(wx)*0.2))
+		a.sidebar.SetSize(sx, wy-statusHeight)
 		sideWidth, _ := lipgloss.Size(a.sidebar.View())
 
-		pw := wx - sideWidth
-		py := wy - 10
-		a.publish.SetSize(pw, py)
-		a.splash.SetSize(pw, py)
-		a.quickSelect.SetSize(pw, py)
-		a.help.SetSize(pw, py)
+		mx := wx - sideWidth
+		mx = min(mx, int(float64(wx)*0.8))
 
-		fx, fy := mainStyle.GetFrameSize()
-		mx, my := wx-sideWidth-fx-4, wy-fy
+		my := min(wy, int(float64(wy)*0.9))
+
+		dialogX, dialogY := int(float64(mx)*0.8), int(float64(my)*0.8)
+		a.publish.SetSize(dialogX, dialogY)
+		a.quickSelect.SetSize(dialogX, dialogY)
+		a.help.SetSize(dialogX, dialogY)
 
 		childMsg := tea.WindowSizeMsg{
 			Width:  mx,
@@ -338,7 +342,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		_, cmd := a.publish.Update(msg)
 		return a, cmd
 	}
-	if a.showQuickSelect {
+	if a.quickSelect.Active() {
 		q, cmd := a.quickSelect.Update(msg)
 		a.quickSelect = q.(*QuickSelect)
 		return a, cmd
@@ -376,13 +380,14 @@ func (a *App) View() string {
 	main := focus.View()
 	side := a.sidebar.View()
 	if a.splash.Active() {
-		main = a.splash.View()
+		main = lipgloss.Place(GetWidth(), GetHeight(), lipgloss.Center, lipgloss.Center, a.splash.View())
+		return main
 	}
 
 	if a.publish.Active() {
 		main = a.publish.View()
 	}
-	if a.showQuickSelect {
+	if a.quickSelect.Active() {
 		main = a.quickSelect.View()
 	}
 	if !a.showSidebar {
@@ -393,7 +398,11 @@ func (a *App) View() string {
 		main = a.help.View()
 	}
 
-	main = mainStyle.Render(main)
+	ss := mainStyle
+	if !a.sidebar.Active() {
+		ss = ss.BorderForeground(activeColor)
+	}
+	main = ss.Render(main)
 
 	return lipgloss.JoinVertical(lipgloss.Top,
 		lipgloss.JoinHorizontal(lipgloss.Center, side, main),

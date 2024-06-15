@@ -329,11 +329,14 @@ func (m *FeedView) SetSize(w, h int) {
 
 	_, dy := lipgloss.Size(channelHeaderStyle.Render(m.descVp.View()))
 	fx, fy := feedStyle.GetFrameSize()
-	m.table.SetWidth(w - fx)
+	x := min(w-fx, int(float64(GetWidth())*0.75))
+	m.table.SetWidth(x)
 	m.table.SetHeight(h - fy - dy)
+
+	// m.table.SetWidth(w -fx)
 	m.setTableConfig()
 
-	lw := int(float64(w) * 0.2)
+	lw := int(float64(w) * 0.75)
 	m.loading.SetSize(lw, h)
 }
 

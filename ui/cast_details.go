@@ -89,19 +89,19 @@ func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds := []tea.Cmd{}
 
 		fx, fy := style.GetFrameSize()
+		w := min(msg.Width-fx, int(float64(GetWidth())*0.75))
+		h := min(msg.Height-fy, GetHeight()-4)
 
-		w, h := msg.Width-fx, msg.Height-fy
 		m.w, m.h = w, h
 
-		m.header.Width = w
 		m.header.Height = min(10, int(float64(h)*0.2))
 
 		hHeight := lipgloss.Height(m.header.View())
 
-		cx, cy := w, h-hHeight
+		cy := h - hHeight
 
-		m.vp.Width = cx
-		m.vp.Height = int(float64(cy) * 0.5)
+		m.vp.Width = w - fx
+		m.vp.Height = int(float64(cy) * 0.5) //- fy
 
 		m.img.SetSize(0, 0)
 
@@ -109,9 +109,9 @@ func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.img.SetSize(4, 4)
 			m.vp.Height = int(float64(cy) * 0.25)
 		}
-		m.replies.SetSize(msg.Width, int(float64(cy)*0.5))
+		m.replies.SetSize(w, int(float64(cy)*0.5))
 
-		m.pubReply.SetSize(msg.Width, msg.Height-10)
+		m.pubReply.SetSize(m.w, m.h)
 		return m, tea.Batch(cmds...)
 
 	case *ctxInfoMsg:
