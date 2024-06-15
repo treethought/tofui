@@ -31,9 +31,9 @@ type Notification struct {
 	Object              string                 `json:"object"`
 	MostRecentTimestamp time.Time              `json:"most_recent_timestamp"`
 	Type                NotificationsType      `json:"type"`
+	Cast                *Cast                   `json:"cast"`
 	Follows             []FollowNotification   `json:"follows"`
 	Reactions           []ReactionNotification `json:"reactions"`
-	ReplyCast           Cast                   `json:"cast"`
 }
 
 type FollowNotification struct {

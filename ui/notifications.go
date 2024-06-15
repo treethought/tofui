@@ -51,11 +51,6 @@ func buildUserList(users []api.User) string {
 	return s
 }
 
-func (n *notifItem) View() string {
-	return "view"
-
-}
-
 func (n *notifItem) Title() string {
 	switch n.Type {
 	case api.NotificationsTypeFollows:
@@ -84,7 +79,7 @@ func (n *notifItem) Title() string {
 		userStr := buildUserList(users)
 		return fmt.Sprintf("%s  %s recasted your post", EmojiRecyle, userStr)
 	case api.NotificationsTypeReply:
-		return fmt.Sprintf("%s  %s replied to your post", EmojiComment, n.ReplyCast.Author.DisplayName)
+		return fmt.Sprintf("%s  %s replied to your post", EmojiComment, n.Cast.Author.DisplayName)
 
 	default:
 		return "unknown notification type: " + string(n.Type)
@@ -93,7 +88,26 @@ func (n *notifItem) Title() string {
 }
 
 func (i *notifItem) Description() string {
+	switch i.Type {
+	case api.NotificationsTypeLikes, api.NotificationsTypeRecasts:
+		if i.Cast != nil {
+			return i.Cast.Text
+		}
+		for _, r := range i.Reactions {
+			if r.Object == api.CastReactionObjTypeLikes {
+				if r.Cast.Object == "cast_dehydrated" {
+					return r.Cast.Hash
+				}
+				return r.Cast.Text
+			}
+		}
+		return "?"
+	case api.NotificationsTypeReply:
+		return i.Cast.Text
+
+	}
 	return ""
+
 }
 
 type NotificationsView struct {
@@ -101,6 +115,7 @@ type NotificationsView struct {
 	list   *list.Model
 	w, h   int
 	active bool
+	items  []list.Item
 }
 
 func NewNotificationsView(app *App) *NotificationsView {
@@ -114,8 +129,8 @@ func NewNotificationsView(app *App) *NotificationsView {
 	l.KeyMap.Quit.SetKeys("ctrl+c")
 	l.Title = "notifications"
 	l.SetShowTitle(true)
-	l.SetFilteringEnabled(true)
-	l.SetShowFilter(true)
+	l.SetFilteringEnabled(false)
+	l.SetShowFilter(false)
 	l.SetShowHelp(true)
 	l.SetShowStatusBar(true)
 	l.SetShowPagination(true)
@@ -150,6 +165,7 @@ func (m *NotificationsView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for _, n := range msg.notifications {
 			items = append(items, &notifItem{n})
 		}
+		m.items = items
 		m.list.SetItems(items)
 		return m, nil
 
@@ -157,6 +173,14 @@ func (m *NotificationsView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q":
 			return m, tea.Quit
+		case "enter":
+			item, ok := m.list.SelectedItem().(*notifItem)
+			if !ok {
+				return m, noOp()
+			}
+			d, _ := json.MarshalIndent(item, "", "  ")
+			log.Println(string(d))
+			return m, noOp()
 		}
 		l, cmd := m.list.Update(msg)
 		m.list = &l

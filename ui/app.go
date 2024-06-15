@@ -326,7 +326,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		my := min(wy, int(float64(wy)*0.9))
 
-		dialogX, dialogY := int(float64(mx)*0.8), int(float64(my)*0.8)
+		dialogX, dialogY := int(float64(mx)*0.8), int(float64(my)*0.9)
 		a.publish.SetSize(dialogX, dialogY)
 		a.quickSelect.SetSize(dialogX, dialogY)
 		a.help.SetSize(dialogX, dialogY)
@@ -368,7 +368,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if a.notifications.Active() {
 			_, cmd := a.notifications.Update(msg)
-			cmds = append(cmds, cmd)
+			if cmd != nil {
+				return a, cmd
+			}
 		}
 
 	case *currentAccountMsg:
