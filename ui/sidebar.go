@@ -101,6 +101,7 @@ func (m *Sidebar) navHeader() []list.Item {
 	items := []list.Item{}
 	if api.GetSigner(m.app.ctx.pk) != nil {
 		items = append(items, &sidebarItem{name: "profile"})
+		items = append(items, &sidebarItem{name: "notifications"})
 	}
 	items = append(items, &sidebarItem{name: "feed"})
 	items = append(items, &sidebarItem{name: "--channels---", value: "--channels--", icon: "🏠"})
@@ -137,6 +138,9 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.nav.SetItems(items)
 
 	case tea.KeyMsg:
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
 		if !m.active {
 			return m, nil
 		}
@@ -154,6 +158,11 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					getUserCmd(m.app.client, fid, m.app.ctx.signer.FID),
 					getUserFeedCmd(m.app.client, fid, m.app.ctx.signer.FID),
 				)
+			}
+			if currentItem.name == "notifications" {
+				m.SetActive(false)
+				log.Println("notifications selected")
+				return m, tea.Sequence(m.app.FocusNotifications())
 			}
 			if currentItem.name == "feed" {
 				m.SetActive(false)
