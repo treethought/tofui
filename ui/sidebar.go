@@ -163,10 +163,10 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if currentItem.itype == "channel" {
 				m.SetActive(false)
 				m.app.SetNavName(fmt.Sprintf("channel: %s", currentItem.name))
-				return m, tea.Sequence(
+				return m, tea.Batch(
+					getChannelFeedCmd(m.app.client, currentItem.value),
+					fetchChannelCmd(m.app.client, currentItem.value),
 					m.app.FocusChannel(),
-					getFeedCmd(m.app.client,
-						&api.FeedRequest{FeedType: "filter", FilterType: "parent_url", ParentURL: currentItem.value, Limit: 100}),
 				)
 			}
 		}

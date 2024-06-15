@@ -220,14 +220,14 @@ func getFeedCmd(client *api.Client, req *api.FeedRequest) tea.Cmd {
 	}
 }
 
-func (m *FeedView) getChannelFeedCmd(pu string) tea.Cmd {
+func getChannelFeedCmd(client *api.Client, pu string) tea.Cmd {
 	return func() tea.Msg {
 		log.Println("getting channel feed")
 		req := &api.FeedRequest{
 			FeedType: "filter", FilterType: "parent_url",
 			ParentURL: pu, Limit: 100,
 		}
-		feed, err := m.app.client.GetFeed(req)
+		feed, err := client.GetFeed(req)
 		return &channelFeedMsg{feed.Casts, err}
 	}
 }
@@ -330,7 +330,7 @@ func (m *FeedView) SetSize(w, h int) {
 	_, dy := lipgloss.Size(channelHeaderStyle.Render(m.descVp.View()))
 	fx, fy := feedStyle.GetFrameSize()
 	m.table.SetWidth(w - fx)
-	m.table.SetHeight(h - fy - dy )
+	m.table.SetHeight(h - fy - dy)
 	m.setTableConfig()
 
 	lw := int(float64(w) * 0.2)
@@ -366,10 +366,10 @@ func (m *FeedView) ViewCurrentProfile() tea.Cmd {
 	)
 }
 
-func (m *FeedView) fetchChannelCmd(pu string) tea.Cmd {
+func fetchChannelCmd(client *api.Client, pu string) tea.Cmd {
 	return func() tea.Msg {
 		log.Println("fetching channel obj")
-		c, err := m.app.client.GetChannelByParentUrl(pu)
+		c, err := client.GetChannelByParentUrl(pu)
 		return &fetchChannelMsg{pu, c, err}
 	}
 }
@@ -388,8 +388,8 @@ func (m *FeedView) ViewCurrentChannel() tea.Cmd {
 	}
 	m.loading.SetActive(true)
 	return tea.Batch(
-		m.getChannelFeedCmd(current.cast.ParentURL),
-		m.fetchChannelCmd(current.cast.ParentURL),
+		getChannelFeedCmd(m.app.client, current.cast.ParentURL),
+		fetchChannelCmd(m.app.client, current.cast.ParentURL),
 		m.app.FocusChannel(),
 	)
 }
