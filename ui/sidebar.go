@@ -188,8 +188,13 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 func (m *Sidebar) View() string {
+	ss := navStyle
 	if m.account == nil {
 		return navStyle.Render(m.nav.View())
+	}
+	if m.active {
+		ss = navStyle.BorderForeground(activeColor)
+
 	}
 
 	accountStyle := NewStyle().
@@ -208,7 +213,7 @@ func (m *Sidebar) View() string {
 		),
 	)
 
-	return navStyle.Render(
+	return ss.Render(
 		lipgloss.JoinVertical(lipgloss.Top,
 			m.nav.View(),
 			account,

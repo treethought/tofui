@@ -175,19 +175,12 @@ func (m *QuickSelect) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-var dialogBoxStyle = NewStyle().
-	Border(lipgloss.RoundedBorder()).
-	BorderForeground(lipgloss.Color("#874BFD")).
-	Padding(1, 0).
-	BorderTop(true).
-	BorderLeft(true).
-	BorderRight(true).
-	BorderBottom(true)
+var dialogBoxStyle = NewStyle()
 
 func (m *QuickSelect) View() string {
-	dialog := lipgloss.Place(10, 10,
+	dialog := lipgloss.Place(m.h, m.h,
 		lipgloss.Center, lipgloss.Center,
-		dialogBoxStyle.Width(m.w).Height(m.h).Render(m.channelList.View()),
+		dialogBoxStyle.Render(m.channelList.View()),
 		lipgloss.WithWhitespaceChars("~~"),
 		lipgloss.WithWhitespaceForeground(subtle),
 	)
