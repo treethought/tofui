@@ -125,6 +125,7 @@ func (m *CastView) SetCast(cast *api.Cast) tea.Cmd {
 	m.Clear()
 	m.cast = cast
 	m.pfp.SetURL(m.cast.Author.PfpURL, false)
+	m.pfp.SetSize(4, 4)
 	cmds := []tea.Cmd{
 		m.replies.SetOpHash(m.cast.Hash),
 		m.pubReply.SetContext(m.cast.Hash, m.cast.ParentURL, m.cast.Author.FID),
