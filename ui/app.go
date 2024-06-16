@@ -135,7 +135,7 @@ func NewApp(cfg *config.Config, ctx *AppContext) *App {
 	a.quickSelect = NewQuickSelect(a)
 	a.publish = NewPublishInput(a)
 	a.statusLine = NewStatusLine(a)
-	a.help = NewHelpView(a)
+	a.help = NewHelpView(a, GlobalKeyMap)
 	a.notifications = NewNotificationsView(a)
 	a.splash = NewSplashView(a)
 	a.splash.SetActive(true)

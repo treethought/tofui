@@ -2,22 +2,30 @@ package ui
 
 import (
 	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+type keymap interface {
+	ShortHelp() []key.Binding
+	FullHelp() [][]key.Binding
+}
 
 type HelpView struct {
 	app  *App
 	h    help.Model
 	vp   viewport.Model
 	full bool
+	km   keymap
 }
 
-func NewHelpView(app *App) *HelpView {
+func NewHelpView(app *App, km keymap) *HelpView {
 	return &HelpView{
 		app: app,
 		h:   help.New(),
 		vp:  viewport.Model{},
+		km:  km,
 	}
 }
 
@@ -33,10 +41,10 @@ func (m *HelpView) IsFull() bool {
 func (m *HelpView) SetFull(full bool) {
 	m.full = full
 	if m.full {
-		m.vp.SetContent(m.h.FullHelpView(GlobalKeyMap.FullHelp()))
+		m.vp.SetContent(m.h.FullHelpView(m.km.FullHelp()))
 		return
 	}
-	hv := GlobalKeyMap.ShortHelp()
+	hv := m.km.ShortHelp()
 	m.vp.SetContent(m.h.ShortHelpView(hv))
 }
 
@@ -52,7 +60,7 @@ func (m *HelpView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *HelpView) ShortView() string {
-	hv := GlobalKeyMap.ShortHelp()
+	hv := m.km.ShortHelp()
 	return m.h.ShortHelpView(hv)
 }
 

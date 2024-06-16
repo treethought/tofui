@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -23,6 +24,7 @@ type CastView struct {
 	vp      *viewport.Model
 	header  *viewport.Model
 	hasImg  bool
+	help    *HelpView
 
 	pubReply *PublishInput
 	w, h     int
@@ -42,8 +44,10 @@ func NewCastView(app *App, cast *api.Cast) *CastView {
 		header:   &hp,
 		pubReply: NewPublishInput(app),
 		hasImg:   false,
+		help:     NewHelpView(app, CastViewKeyMap),
 	}
 	c.pfp.SetSize(4, 4)
+	c.help.SetFull(false)
 	return c
 }
 
@@ -54,6 +58,67 @@ func (m *CastView) Clear() {
 	m.replies.Clear()
 	m.img.Clear()
 	m.pfp.Clear()
+}
+
+func (m *CastView) LikeCast() tea.Cmd {
+	if m.cast == nil {
+		return nil
+	}
+	return likeCastCmd(m.app.client, m.app.ctx.signer, m.cast)
+}
+
+func (m *CastView) OpenCast() tea.Cmd {
+	if m.cast == nil {
+		return nil
+	}
+	return OpenURL(fmt.Sprintf("https://warpcast.com/%s/%s", m.cast.Author.Username, m.cast.Hash))
+}
+
+func (m *CastView) Reply() {
+	if m.cast == nil {
+		return
+	}
+	m.pubReply.SetActive(true)
+	m.pubReply.SetFocus(true)
+}
+
+func (m *CastView) ViewProfile() tea.Cmd {
+	if m.cast == nil {
+		return nil
+	}
+
+	userFid := m.cast.Author.FID
+	return tea.Sequence(
+		m.app.FocusProfile(),
+		getUserCmd(m.app.client, userFid, m.app.ctx.signer.FID),
+		getUserFeedCmd(m.app.client, userFid, m.app.ctx.signer.FID),
+	)
+}
+func (m *CastView) ViewChannel() tea.Cmd {
+	if m.cast == nil || m.cast.ParentURL == "" {
+		return nil
+	}
+
+	return tea.Batch(
+		getChannelFeedCmd(m.app.client, m.cast.ParentURL),
+		fetchChannelCmd(m.app.client, m.cast.ParentURL),
+		m.app.FocusChannel(),
+	)
+}
+
+func (m *CastView) ViewParent() tea.Cmd {
+	if m.cast == nil || m.cast.ParentHash == "" {
+		return nil
+	}
+	return func() tea.Msg {
+		cast, err := m.app.client.GetCastWithReplies(m.app.ctx.signer, m.cast.ParentHash)
+		if err != nil {
+			log.Println("failed to get parent cast", err)
+			return nil
+		}
+
+		return m.SetCast(cast)
+	}
 }
 
 func (m *CastView) SetCast(cast *api.Cast) tea.Cmd {
@@ -90,6 +155,8 @@ func (m *CastView) resize() tea.Cmd {
 	fx, fy := style.GetFrameSize()
 	w := min(m.w-fx, int(float64(GetWidth())*0.75))
 	h := min(m.h-fy, GetHeight()-4)
+
+	m.help.SetSize(m.w, 1)
 
 	m.header.Height = min(10, int(float64(h)*0.2))
 
@@ -130,16 +197,8 @@ func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			_, cmd := m.pubReply.Update(msg)
 			return m, cmd
 		}
-		if msg.String() == "o" {
-			return m, OpenURL(fmt.Sprintf("https://warpcast.com/%s/%s", m.cast.Author.Username, m.cast.Hash))
-		}
-		if msg.String() == "l" {
-			return m, likeCastCmd(m.app.client, m.app.ctx.signer, m.cast)
-		}
-		if msg.String() == "C" {
-			m.pubReply.SetActive(true)
-			m.pubReply.SetFocus(true)
-			return m, nil
+		if CastViewKeyMap.HandleMsg(m, msg) != nil {
+			return m, CastViewKeyMap.HandleMsg(m, msg)
 		}
 	}
 	m.vp.SetContent(CastContent(m.cast, 10))
@@ -181,6 +240,7 @@ func (m *CastView) View() string {
 			m.header.View(),
 			m.vp.View(),
 			m.img.View(),
+			m.help.View(),
 			m.replies.View(),
 		),
 	)
