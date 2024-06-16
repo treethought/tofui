@@ -80,6 +80,10 @@ func (n *notifItem) Title() string {
 		return fmt.Sprintf("%s  %s recasted your post", EmojiRecyle, userStr)
 	case api.NotificationsTypeReply:
 		return fmt.Sprintf("%s  %s replied to your post", EmojiComment, n.Cast.Author.DisplayName)
+	case api.NotificationsTypeMention:
+		return fmt.Sprintf("%s  %s mentioned you in a post",
+			NewStyle().Bold(true).Foreground(activeColor).Render("@"), n.Cast.Author.DisplayName,
+		)
 
 	default:
 		return "unknown notification type: " + string(n.Type)
@@ -102,7 +106,7 @@ func (i *notifItem) Description() string {
 			}
 		}
 		return "?"
-	case api.NotificationsTypeReply:
+	case api.NotificationsTypeReply, api.NotificationsTypeMention:
 		return i.Cast.Text
 
 	}
@@ -179,7 +183,7 @@ func (m *NotificationsView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, noOp()
 			}
 			switch item.Type {
-			case api.NotificationsTypeLikes, api.NotificationsTypeRecasts, api.NotificationsTypeReply:
+			case api.NotificationsTypeLikes, api.NotificationsTypeRecasts, api.NotificationsTypeReply, api.NotificationsTypeMention:
 				return m, tea.Sequence(
 					m.app.FocusCast(),
 					selectCast(item.Cast),
