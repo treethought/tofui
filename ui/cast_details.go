@@ -35,7 +35,7 @@ func NewCastView(app *App, cast *api.Cast) *CastView {
 	c := &CastView{
 		app:      app,
 		cast:     cast,
-		pfp:      NewImage(false, true, special),
+		pfp:      NewImage(true, true, special),
 		img:      NewImage(true, true, special),
 		replies:  NewRepliesView(app),
 		vp:       &vp,
@@ -43,6 +43,7 @@ func NewCastView(app *App, cast *api.Cast) *CastView {
 		pubReply: NewPublishInput(app),
 		hasImg:   false,
 	}
+	c.pfp.SetSize(4, 4)
 	return c
 }
 
@@ -58,16 +59,17 @@ func (m *CastView) Clear() {
 func (m *CastView) SetCast(cast *api.Cast) tea.Cmd {
 	m.Clear()
 	m.cast = cast
+	m.pfp.SetURL(m.cast.Author.PfpURL, false)
 	cmds := []tea.Cmd{
 		m.replies.SetOpHash(m.cast.Hash),
-		m.pfp.SetURL(m.cast.Author.PfpURL, false),
-		m.pfp.SetSize(4, 4),
 		m.pubReply.SetContext(m.cast.Hash, m.cast.ParentURL, m.cast.Author.FID),
+		m.pfp.Render(),
 	}
 	m.hasImg = false
 	if len(m.cast.Embeds) > 0 {
 		m.hasImg = true
-		cmds = append(cmds, m.img.SetURL(m.cast.Embeds[0].URL, true))
+		m.img.SetURL(m.cast.Embeds[0].URL, true)
+		cmds = append(cmds, m.resize(), m.img.Render())
 	}
 	return tea.Sequence(cmds...)
 }
@@ -83,36 +85,41 @@ func min(a, b int) int {
 	return b
 }
 
+func (m *CastView) resize() tea.Cmd {
+	cmds := []tea.Cmd{}
+	fx, fy := style.GetFrameSize()
+	w := min(m.w-fx, int(float64(GetWidth())*0.75))
+	h := min(m.h-fy, GetHeight()-4)
+
+	m.header.Height = min(10, int(float64(h)*0.2))
+
+	hHeight := lipgloss.Height(m.header.View())
+
+	cy := h - hHeight
+
+	m.vp.Width = w - fx
+	m.vp.Height = int(float64(cy) * 0.5) //- fy
+
+	if m.hasImg {
+		q := int(float64(cy) * 0.25)
+		m.vp.Height = q
+		m.img.SetSize(m.vp.Width/2, q)
+
+		cmds = append(cmds, m.img.Render())
+	} else {
+		m.img.Clear()
+	}
+	m.replies.SetSize(w, int(float64(cy)*0.5))
+
+	m.pubReply.SetSize(w, h)
+	return tea.Batch(cmds...)
+}
+
 func (m *CastView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		cmds := []tea.Cmd{}
-
-		fx, fy := style.GetFrameSize()
-		w := min(msg.Width-fx, int(float64(GetWidth())*0.75))
-		h := min(msg.Height-fy, GetHeight()-4)
-
-		m.w, m.h = w, h
-
-		m.header.Height = min(10, int(float64(h)*0.2))
-
-		hHeight := lipgloss.Height(m.header.View())
-
-		cy := h - hHeight
-
-		m.vp.Width = w - fx
-		m.vp.Height = int(float64(cy) * 0.5) //- fy
-
-		m.img.SetSize(0, 0)
-
-		if m.hasImg {
-			m.img.SetSize(4, 4)
-			m.vp.Height = int(float64(cy) * 0.25)
-		}
-		m.replies.SetSize(w, int(float64(cy)*0.5))
-
-		m.pubReply.SetSize(m.w, m.h)
-		return m, tea.Batch(cmds...)
+		m.w, m.h = msg.Width, msg.Height
+		return m, m.resize()
 
 	case *ctxInfoMsg:
 		_, cmd := m.pubReply.Update(msg)

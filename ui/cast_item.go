@@ -134,16 +134,17 @@ func NewCastFeedItem(app *App, cast *api.Cast, compact bool) (*CastFeedItem, tea
 		pfp:     NewImage(true, true, special),
 		compact: compact,
 	}
+	c.pfp.SetURL(cast.Author.PfpURL, false)
 
 	cmds := []tea.Cmd{
-		c.pfp.SetURL(cast.Author.PfpURL, false),
+		c.pfp.Render(),
 		getCastChannelCmd(app.client, cast),
 	}
 
 	if c.compact {
-		cmds = append(cmds, c.pfp.SetSize(2, 1))
+		c.pfp.SetSize(2, 1)
 	} else {
-		cmds = append(cmds, c.pfp.SetSize(4, 4))
+		c.pfp.SetSize(4, 4)
 	}
 	return c, tea.Batch(cmds...)
 }
