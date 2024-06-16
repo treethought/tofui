@@ -443,7 +443,8 @@ func (m *FeedView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.SetDescription(channelDescription(msg.channel, m.headerImg))
-		return m, m.headerImg.SetURL(msg.channel.ImageURL, false)
+		m.headerImg.SetURL(msg.channel.ImageURL, false)
+		return m, m.headerImg.Render()
 
 	case reactMsg:
 		current := m.getCurrentItem()
