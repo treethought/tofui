@@ -7,6 +7,85 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+type casetViewKeymap struct {
+	LikeCast    key.Binding
+	ViewProfile key.Binding
+	ViewChannel key.Binding
+	ViewParent  key.Binding
+	Comment     key.Binding
+	OpenCast    key.Binding
+}
+
+func (k casetViewKeymap) ShortHelp() []key.Binding {
+	return []key.Binding{
+		k.LikeCast,
+		k.ViewParent,
+		k.Comment,
+	}
+}
+func (k casetViewKeymap) All() []key.Binding {
+	return []key.Binding{
+		k.LikeCast,
+		k.ViewProfile,
+		k.ViewChannel,
+		k.ViewParent,
+		k.Comment,
+		k.OpenCast,
+	}
+}
+
+func (k casetViewKeymap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		k.All(),
+	}
+}
+
+func (k casetViewKeymap) HandleMsg(c *CastView, msg tea.KeyMsg) tea.Cmd {
+	switch {
+	case key.Matches(msg, k.LikeCast):
+		return c.LikeCast()
+	case key.Matches(msg, k.ViewProfile):
+		return c.ViewProfile()
+	case key.Matches(msg, k.ViewChannel):
+		return c.ViewChannel()
+	case key.Matches(msg, k.ViewParent):
+		return c.ViewParent()
+	case key.Matches(msg, k.Comment):
+		c.Reply()
+		return noOp()
+	case key.Matches(msg, k.OpenCast):
+		return c.OpenCast()
+	}
+	return nil
+}
+
+var CastViewKeyMap = casetViewKeymap{
+	LikeCast: key.NewBinding(
+		key.WithKeys("l"),
+		key.WithHelp("l", "like cast"),
+	),
+	ViewProfile: key.NewBinding(
+		key.WithKeys("p"),
+		key.WithHelp("p", "view profile"),
+	),
+	ViewChannel: key.NewBinding(
+		key.WithKeys("c"),
+		key.WithHelp("c", "view channel"),
+	),
+	ViewParent: key.NewBinding(
+		key.WithKeys("t"),
+		key.WithHelp("t", "view parent"),
+	),
+	Comment: key.NewBinding(
+		key.WithKeys("r"),
+		key.WithHelp("r", "reply"),
+	),
+	OpenCast: key.NewBinding(
+		key.WithKeys("o"),
+		key.WithHelp("o", "open in browser"),
+	),
+}
+
 type feedKeymap struct {
 	ViewCast    key.Binding
 	LikeCast    key.Binding
@@ -198,11 +277,13 @@ func (k navKeymap) HandleMsg(a *App, msg tea.KeyMsg) tea.Cmd {
 type kmap struct {
 	nav  navKeymap
 	feed feedKeymap
+	cast casetViewKeymap
 }
 
 var GlobalKeyMap = kmap{
 	nav:  NavKeyMap,
 	feed: FeedKeyMap,
+	cast: CastViewKeyMap,
 }
 
 func (k kmap) ShortHelp() []key.Binding {
@@ -213,6 +294,7 @@ func (k kmap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		k.nav.All(),
 		k.feed.All(),
+		k.cast.All(),
 	}
 }
 
