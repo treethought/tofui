@@ -23,7 +23,7 @@ func UserBio(user *api.User) string {
 		NewStyle().Render(" followers"),
 	)
 
-	style := NewStyle().BorderStyle(lipgloss.ThickBorder()).BorderBottom(true).Padding(2)
+	style := NewStyle().BorderStyle(lipgloss.RoundedBorder()).BorderBottom(true).Padding(2)
 
 	return style.Render(lipgloss.JoinVertical(lipgloss.Top,
 		NewStyle().MarginTop(0).MarginBottom(0).Padding(0).Render(user.Profile.Bio.Text),
@@ -122,9 +122,10 @@ func (m *Profile) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ProfileMsg:
 		if msg.user != nil {
 			m.user = msg.user
+			m.pfp.SetURL(m.user.PfpURL, false)
+			m.pfp.SetSize(4, 4)
 			return m, tea.Batch(
-				m.pfp.SetURL(m.user.PfpURL, false),
-				m.pfp.SetSize(4, 4),
+				m.pfp.Render(),
 				navNameCmd(fmt.Sprintf("profile: @%s", m.user.Username)),
 			)
 		}

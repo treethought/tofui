@@ -218,11 +218,12 @@ func convertImageToString(width int, ib []byte) (string, error) {
 
 // ImageModel represents the properties of a code bubble.
 type ImageModel struct {
-	Viewport    viewport.Model
+	Viewport    *viewport.Model
 	BorderColor lipgloss.AdaptiveColor
 	Active      bool
 	Borderless  bool
 	URL         string
+	isEmbed     bool
 	ImageString string
 }
 
@@ -242,7 +243,7 @@ func NewImage(active, borderless bool, borderColor lipgloss.AdaptiveColor) *Imag
 		BorderForeground(borderColor)
 
 	return &ImageModel{
-		Viewport:    viewPort,
+		Viewport:    &viewPort,
 		Active:      active,
 		Borderless:  borderless,
 		BorderColor: borderColor,
@@ -258,27 +259,31 @@ func (m *ImageModel) Clear() {
 	m.URL = ""
 	m.ImageString = ""
 	m.Viewport.SetContent("")
+	m.Viewport.Width = 0
+	m.Viewport.Height = 0
 }
 
-func (m *ImageModel) SetURL(url string, embed bool) tea.Cmd {
+func (m *ImageModel) Render() tea.Cmd {
+	if m.Viewport.Width == 0 {
+		return nil
+	}
+	if m.URL == "" {
+		return nil
+	}
+	return getImageCmd(m.Viewport.Width, m.URL, m.isEmbed)
+}
+
+func (m *ImageModel) SetURL(url string, embed bool) {
 	m.URL = url
-	return getImageCmd(m.Viewport.Width, url, embed)
+	m.isEmbed = embed
 }
-
-// SetFileName sets current file to highlight, this
-// returns a cmd which will highlight the text.
-// func (m *ImageModel) SetFileName(filename string) tea.Cmd {
-// 	m.FileName = filename
-// 	return convertImageToStringCmd(m.Viewport.Width, filename)
-// }
 
 // SetBorderColor sets the current color of the border.
 func (m *ImageModel) SetBorderColor(color lipgloss.AdaptiveColor) {
 	m.BorderColor = color
 }
 
-// SetSize sets the size of the bubble.
-func (m *ImageModel) SetSize(w, h int) tea.Cmd {
+func (m *ImageModel) SetSize(w, h int) {
 	m.Viewport.Width = w
 	m.Viewport.Height = h
 
@@ -293,12 +298,6 @@ func (m *ImageModel) SetSize(w, h int) tea.Cmd {
 		PaddingRight(padding).
 		Border(border).
 		BorderForeground(m.BorderColor)
-
-	if m.ImageString != "" {
-		return getImageCmd(w, m.URL, false)
-	}
-
-	return nil
 }
 
 // SetIsActive sets if the bubble is currently active
@@ -339,10 +338,11 @@ func (m *ImageModel) Update(msg tea.Msg) (*ImageModel, tea.Cmd) {
 	case convertImageToStringMsg:
 		if msg.url == m.URL && msg.str != "" {
 			m.ImageString = NewStyle().
-				// Width(m.Viewport.Width).
-				// Height(m.Viewport.Height).
+				Width(m.Viewport.Width).
+				Height(m.Viewport.Height).
 				Render(msg.str)
 			m.Viewport.SetContent(m.ImageString)
+			m.SetSize(m.Viewport.Width, m.Viewport.Height)
 		}
 	case downloadError:
 		if msg.url == m.URL {

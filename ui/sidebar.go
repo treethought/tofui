@@ -181,7 +181,8 @@ func (m *Sidebar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case *currentAccountMsg:
 		m.account = msg.account
-		return m, m.pfp.SetURL(m.account.PfpURL, false)
+		m.pfp.SetURL(m.account.PfpURL, false)
+		return m, m.pfp.Render()
 
 	}
 
