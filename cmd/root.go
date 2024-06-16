@@ -37,7 +37,7 @@ func runLocal() {
 		prgmSessions: make(map[string][]*tea.Program),
 	}
 	go sv.startSigninHTTPServer()
-	app := ui.NewLocalApp(cfg)
+	app := ui.NewLocalApp(cfg, false)
 	p := tea.NewProgram(app, tea.WithAltScreen())
 	sv.prgmSessions["local"] = append(sv.prgmSessions["local"], p)
 	if _, err := p.Run(); err != nil {

@@ -54,6 +54,7 @@ type App struct {
 	ctx           *AppContext
 	client        *api.Client
 	cfg           *config.Config
+	pubonly       bool
 	focusedModel  tea.Model
 	focused       string
 	navname       string
@@ -98,21 +99,21 @@ func NewSSHApp(cfg *config.Config, s ssh.Session, r *lipgloss.Renderer) (*App, e
 	}
 
 	ctx := &AppContext{s: s, pk: pk, signer: signer}
-	app := NewApp(cfg, ctx)
+	app := NewApp(cfg, ctx, false)
 	return app, nil
 }
 
-func NewLocalApp(cfg *config.Config) *App {
+func NewLocalApp(cfg *config.Config, pubInit bool) *App {
 	signer := api.GetSigner("local")
 	if signer != nil {
 		log.Println("logged in locally as: ", signer.Username)
 	}
 	ctx := &AppContext{signer: signer, pk: "local"}
-	app := NewApp(cfg, ctx)
+	app := NewApp(cfg, ctx, pubInit)
 	return app
 }
 
-func NewApp(cfg *config.Config, ctx *AppContext) *App {
+func NewApp(cfg *config.Config, ctx *AppContext, pubonly bool) *App {
 	if ctx == nil {
 		ctx = &AppContext{}
 	}
@@ -121,6 +122,7 @@ func NewApp(cfg *config.Config, ctx *AppContext) *App {
 		ctx:         ctx,
 		client:      api.NewClient(cfg),
 		cfg:         cfg,
+		pubonly:     pubonly,
 	}
 	a.feed = NewFeedView(a, feedTypeFollowing)
 	a.focusedModel = a.feed
@@ -141,6 +143,12 @@ func NewApp(cfg *config.Config, ctx *AppContext) *App {
 	a.splash.SetActive(true)
 	if a.ctx.signer == nil {
 		a.splash.ShowSignin(true)
+	}
+	if a.pubonly {
+		a.splash.SetActive(false)
+		a.FocusPublish()
+		a.SetNavName("publish")
+		return a
 	}
 	a.SetNavName("feed")
 
@@ -209,6 +217,17 @@ func (a *App) FocusChannel() tea.Cmd {
 	a.focusedModel = a.channel
 	a.focused = "channel"
 	return a.channel.Init()
+}
+
+func (a *App) GoToCast(hash string) tea.Cmd {
+	return func() tea.Msg {
+		cast, err := a.client.GetCastWithReplies(a.ctx.signer, hash)
+		if err != nil {
+			log.Println("error getting cast: ", err)
+			return nil
+		}
+		return tea.Sequence(a.FocusCast(), a.cast.SetCast(cast))
+	}
 }
 
 func (a *App) FocusCast() tea.Cmd {

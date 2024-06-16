@@ -203,7 +203,7 @@ func (m *PublishInput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		log.Println("cast posted: ", msg.resp.Cast.Hash)
 		m.Clear()
 		m.SetActive(false)
-		return m, nil
+		return m, m.app.GoToCast(msg.resp.Cast.Hash)
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
 			return nil, tea.Quit
